@@ -42,7 +42,7 @@ jobs:
         run: cargo bench -p ${{ matrix.crate }} -- --output-format bencher | tee output.txt
 
       - name: Save base benchmark
-        uses: benchmark-action/github-action-benchmark@v1
+        uses: morenol/github-action-benchmark@master
         with:
           tool: cargo
           output-file-path: output.txt
@@ -58,7 +58,7 @@ jobs:
         run: cargo bench -p ${{ matrix.crate }} -- --output-format bencher | tee output.txt
 
       - name: Check benchmark
-        uses: benchmark-action/github-action-benchmark@v1
+        uses: morenol/github-action-benchmark@master
         with:
           # What benchmark tool the output.txt came from
           tool: "cargo"
