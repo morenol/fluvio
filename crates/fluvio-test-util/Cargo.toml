@@ -28,7 +28,7 @@ once_cell = { workspace = true }
 dyn-clone = "1.0"
 semver = { workspace = true }
 hdrhistogram = "7.3.0"
-uuid = { version = "1.1", features = ["serde", "v4"] }
+uuid = { version = "1.4", features = ["serde", "v4"] }
 anyhow = { workspace = true }
 
 fluvio = { workspace = true  }
