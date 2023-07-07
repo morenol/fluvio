@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 use std::time::Instant;
 
 use tracing::{debug, error, instrument, trace, warn};
@@ -6,7 +6,7 @@ use tokio::select;
 
 use fluvio_controlplane_metadata::partition::ReplicaKey;
 use fluvio_types::event::{StickyEvent, offsets::OffsetPublisher};
-use fluvio_future::task::spawn;
+use fluvio_future::{task::spawn, timer::sleep};
 use fluvio_socket::{ExclusiveFlvSink, SocketError};
 use fluvio_protocol::{
     api::{RequestMessage, RequestHeader},
@@ -226,6 +226,12 @@ impl StreamFetchHandler {
         let mut last_known_consumer_offset: Option<Offset> =
             (!consumer_wait).then_some(last_partition_offset);
 
+        
+        // window timer 
+        let mut window_timer = sleep(Duration::from_secs(5));
+
+        
+
         loop {
             counter += 1;
             debug!(
@@ -241,6 +247,11 @@ impl StreamFetchHandler {
                     break;
                 },
 
+
+                _ = &mut window_timer => {
+                    debug!("window timer has been received, updating window");
+                    break;
+                },
 
                 // Received offset update from consumer, i.e. consumer acknowledged to this offset
                 consumer_offset_update = self.consumer_offset_listener.listen() => {
@@ -530,6 +541,26 @@ impl StreamFetchHandler {
             .await?;
 
         Ok((next_offset, true))
+    }
+
+
+     /// send back records back to consumer
+    /// return (next offset, consumer wait)
+    //  consumer wait flag tells that there are records send back to consumer
+    #[instrument(
+        skip(self, sm_ctx),
+        fields(stream_id = self.stream_id)
+    )]
+    async fn invoke_window(
+        &mut self,
+        starting_offset: Offset,
+        sm_ctx: Option<&mut SmartModuleContext>,
+    ) -> Result<(), StreamFetchError> {
+
+
+
+        Ok(())
+
     }
 }
 
