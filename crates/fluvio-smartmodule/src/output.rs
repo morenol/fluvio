@@ -60,3 +60,14 @@ pub struct SmartModuleLookbackOutput {
     /// Any runtime error if one was encountered
     pub error: SmartModuleLookbackRuntimeError,
 }
+
+
+/// A type used to return processed records and/or an error from a SmartModule
+#[derive(Debug, Default, Encoder, Decoder)]
+pub struct SmartModuleWindowOutput {
+    /// The successfully processed output Records
+    pub successes: Vec<Record>,
+    /// Any runtime error if one was encountered
+    pub error: Option<SmartModuleInitRuntimeError>
+}
+

@@ -8,6 +8,8 @@ use fluvio_protocol::{Encoder, Decoder, record::Record};
 
 pub const SMARTMODULE_LOOKBACK_WITH_AGE: i16 = 21;
 
+pub use window::*;
+
 #[derive(Debug, Default, Clone, Encoder, Decoder)]
 pub struct SmartModuleExtraParams {
     inner: BTreeMap<String, String>,
@@ -175,9 +177,11 @@ mod window {
 
     use super::*;
 
+    /// input to SmartModule Window
     #[derive(Debug, Default, Clone, Encoder, Decoder)]
-    pub struct SmartModuleWindow {
-        pub starting_time: u64,
+    pub struct SmartModuleWindowInput {
+        pub starting_time: FluvioDateTime,
+        pub end_time: FluvioDateTime
     }
 
     /// wrapper for chrono DateTime

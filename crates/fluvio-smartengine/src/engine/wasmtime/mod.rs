@@ -5,6 +5,7 @@ pub(crate) mod state;
 pub(crate) mod engine;
 pub(crate) mod instance;
 pub(crate) mod look_back;
+pub(crate) mod window;
 pub use engine::{SmartEngine, SmartModuleChainBuilder, SmartModuleChainInstance};
 
 use super::*;

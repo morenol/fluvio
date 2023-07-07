@@ -74,6 +74,14 @@ impl SmartModuleInstance {
         }
     }
 
+    pub(crate) fn call_window(&mut self, store: &mut impl AsContextMut) -> Result<(), Error> {
+        if let Some(ref mut window) = self.ctx.params.window {
+            window.call(&mut self.ctx, store)
+        } else {
+            Ok(())
+        }
+    }
+
     pub(crate) fn call_look_back(
         &mut self,
         input: SmartModuleInput,
