@@ -2966,6 +2966,8 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "fluvio-protocol",
+ "serde",
+ "serde_json",
  "thiserror",
  "tracing",
 ]
@@ -8317,6 +8319,7 @@ version = "0.0.0"
 dependencies = [
  "chrono",
  "fluvio-smartmodule",
+ "fluvio-smartmodule-window",
  "serde",
  "serde_json",
 ]

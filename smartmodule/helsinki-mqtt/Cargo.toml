@@ -14,3 +14,4 @@ serde_json = "1"
 chrono = { workspace = true, features = ["serde"] }
 
 fluvio-smartmodule = { workspace = true }
+fluvio-smartmodule-window = { workspace = true, features = ["use_serde"]}

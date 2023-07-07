@@ -1,4 +1,3 @@
-mod window;
 mod vehicle;
 
 use std::sync::{OnceLock, Mutex};
@@ -8,8 +7,10 @@ use fluvio_smartmodule::{
     dataplane::smartmodule::{SmartModuleExtraParams, SmartModuleWindowInput},
     RecordData,
 };
+
+use fluvio_smartmodule_window::window::TumblingWindow;
 use vehicle::{MQTTEvent, DefaultWindowState, VehicleStatistics};
-use window::TumblingWindow;
+
 
 #[smartmodule(init)]
 fn init(_params: SmartModuleExtraParams) -> Result<()> {

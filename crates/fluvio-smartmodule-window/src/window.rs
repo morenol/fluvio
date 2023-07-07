@@ -52,17 +52,14 @@ pub trait WindowState<K, V> {
 }
 
 // lock free stats
+
 mod stats_lock_free {
     use std::{
         sync::atomic::{AtomicU64, Ordering, AtomicU32},
-        fmt,
         ops::{Deref, DerefMut},
     };
 
-    use serde::{
-        Serialize, Deserialize, Serializer, Deserializer,
-        de::{Visitor, self},
-    };
+    
 
     #[derive(Debug, Default)]
     pub struct AtomicF64(AtomicU64);
@@ -78,46 +75,6 @@ mod stats_lock_free {
     impl DerefMut for AtomicF64 {
         fn deref_mut(&mut self) -> &mut Self::Target {
             &mut self.0
-        }
-    }
-
-    impl Serialize for AtomicF64 {
-        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: Serializer,
-        {
-            serializer.serialize_f64(self.load())
-        }
-    }
-
-    struct AtomicF64Visitor;
-
-    impl<'de> Visitor<'de> for AtomicF64Visitor {
-        type Value = AtomicF64;
-
-        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-            formatter.write_str("an float between -2^31 and 2^31")
-        }
-
-        fn visit_f64<E>(self, value: f64) -> Result<Self::Value, E>
-        where
-            E: de::Error,
-        {
-            use std::f64;
-            if value >= f64::from(f64::MIN) && value <= f64::from(f64::MAX) {
-                Ok(AtomicF64::new(value))
-            } else {
-                Err(E::custom(format!("f64 out of range: {}", value)))
-            }
-        }
-    }
-
-    impl<'de> Deserialize<'de> for AtomicF64 {
-        fn deserialize<D>(deserializer: D) -> Result<AtomicF64, D::Error>
-        where
-            D: Deserializer<'de>,
-        {
-            deserializer.deserialize_f64(AtomicF64Visitor)
         }
     }
 
@@ -138,14 +95,74 @@ mod stats_lock_free {
         }
     }
 
-    #[derive(Debug, Default, Serialize)]
-    pub struct RollingMean {
-        #[serde(skip)]
+    #[cfg(feature = "use_serde")]
+    mod serde_util {
+
+        use std::fmt;
+
+        use serde::{
+            Serialize, Deserialize, Serializer, Deserializer,
+            de::{Visitor, self},
+        };
+
+        use super::*;
+
+        struct AtomicF64Visitor;
+
+        impl Serialize for AtomicF64 {
+            fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+            where
+                S: Serializer,
+            {
+                serializer.serialize_f64(self.load())
+            }
+        }
+
+
+        impl<'de> Visitor<'de> for AtomicF64Visitor {
+            type Value = AtomicF64;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("an float between -2^31 and 2^31")
+            }
+
+            fn visit_f64<E>(self, value: f64) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                use std::f64;
+                if value >= f64::from(f64::MIN) && value <= f64::from(f64::MAX) {
+                    Ok(AtomicF64::new(value))
+                } else {
+                    Err(E::custom(format!("f64 out of range: {}", value)))
+                }
+            }
+        }
+
+        impl<'de> Deserialize<'de> for AtomicF64 {
+            fn deserialize<D>(deserializer: D) -> Result<AtomicF64, D::Error>
+            where
+                D: Deserializer<'de>,
+            {
+                deserializer.deserialize_f64(AtomicF64Visitor)
+            }
+        }
+
+        
+    }
+
+    #[derive(Debug, Default)]
+    #[cfg_attr(
+        feature = "use_serde",
+        derive(serde::Serialize),
+    )]
+    pub struct LockFreeRollingMean {
+        #[cfg_attr(feature = "use_serde", serde(skip))]
         count: AtomicU32,
         mean: AtomicF64,
     }
 
-    impl RollingMean {
+    impl LockFreeRollingMean {
         /// add to sample
         pub fn add(&self, value: f64) {
             let prev_mean = self.mean.load();
@@ -160,49 +177,65 @@ mod stats_lock_free {
         }
     }
 
+    #[cfg(test)]
     mod test {
 
         use super::*;
 
-        #[derive(Serialize, Deserialize)]
+        #[cfg_attr(feature = "use_serde", derive(serde::Serialize, serde::Deserialize))]
         struct Sample {
             speed: AtomicF64,
         }
 
-        #[test]
-        fn test_f64_serialize() {
-            let test = Sample {
-                speed: AtomicF64::new(3.2),
-            };
-            let json = serde_json::to_string(&test).expect("serialize");
-            assert_eq!(json, r#"{"speed":3.2}"#);
-        }
-
-        #[test]
-        fn test_f64_de_serialize() {
-            let input_str = r#"{"speed":9.13}"#;
-            let test: Sample = serde_json::from_str(input_str).expect("serialize");
-            assert_eq!(test.speed.load(), 9.13);
-        }
-
+        
         #[test]
         fn rolling_mean() {
-            let rm: RollingMean = RollingMean::default();
+            let rm  = LockFreeRollingMean::default();
             rm.add(3.2);
             assert_eq!(rm.mean(), 3.2);
             rm.add(4.2);
             assert_eq!(rm.mean(), 3.7);
         }
+
+        #[cfg(feature = "use_serde")]
+        mod test_serde {
+
+            use serde::{Serialize, Deserialize};
+            
+            use super::*;
+
+            
+
+            #[test]
+            fn test_f64_serialize() {
+                let test = Sample {
+                    speed: AtomicF64::new(3.2),
+                };
+                let json = serde_json::to_string(&test).expect("serialize");
+                assert_eq!(json, r#"{"speed":3.2}"#);
+            }
+
+            #[test]
+            fn test_f64_de_serialize() {
+                let input_str = r#"{"speed":9.13}"#;
+                let test: Sample = serde_json::from_str(input_str).expect("serialize");
+                assert_eq!(test.speed.load(), 9.13);
+            }
+        }
+
     }
 }
 
 mod stats {
 
-    use serde::{Serialize};
 
-    #[derive(Debug, Default, Serialize)]
+    #[derive(Debug, Default)]
+    #[cfg_attr(
+        feature = "use_serde",
+        derive(serde::Serialize),
+    )]
     pub struct RollingMean {
-        #[serde(skip)]
+        #[cfg_attr(feature = "use_serde", serde(skip))]
         count: u32,
         mean: f64,
     }
@@ -222,12 +255,14 @@ mod stats {
         }
     }
 
+    #[cfg(test)]
     mod test {
-        use crate::window::RollingMean;
+        
+        use super::*;
 
         #[test]
         fn rolling_mean() {
-            let mut rm: RollingMean = RollingMean::default();
+            let mut rm  = RollingMean::default();
             rm.add(3.2);
             assert_eq!(rm.mean(), 3.2);
             rm.add(4.2);
