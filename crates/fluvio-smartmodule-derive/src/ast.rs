@@ -26,6 +26,7 @@ impl SmartModuleConfig {
 pub enum SmartModuleKind {
     Init,
     LookBack,
+    Window,
     Aggregate,
     Filter,
     Map,
@@ -48,6 +49,7 @@ impl SmartModuleKind {
             "filter_map" => Some(Self::FilterMap),
             "init" => Some(Self::Init),
             "look_back" => Some(Self::LookBack),
+            "window" => Some(Self::Window),
             _ => None,
         };
 

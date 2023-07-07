@@ -149,6 +149,31 @@ impl fmt::Display for SmartModuleInitRuntimeError {
 
 /// A type used to capture and serialize errors from within a SmartModule
 #[derive(thiserror::Error, Debug, Default, Clone, Eq, PartialEq, Encoder, Decoder)]
+pub struct SmartModuleWindowRuntimeError {
+    /// Error hint: meant for users, not for code
+    pub hint: String,
+}
+
+impl SmartModuleWindowRuntimeError {
+    pub fn new(error: eyre::Error) -> Self {
+        let hint = format!("{error:?}");
+        Self { hint }
+    }
+}
+
+impl fmt::Display for SmartModuleWindowRuntimeError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}\n\n\
+            SmartModule Window Error: \n",
+            self.hint
+        )
+    }
+}
+
+/// A type used to capture and serialize errors from within a SmartModule
+#[derive(thiserror::Error, Debug, Default, Clone, Eq, PartialEq, Encoder, Decoder)]
 pub struct SmartModuleLookbackRuntimeError {
     /// Error hint: meant for users, not for code
     pub hint: String,

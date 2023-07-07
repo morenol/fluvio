@@ -3,7 +3,7 @@ use std::fmt::Debug;
 
 use anyhow::{Result, Ok};
 use fluvio_smartmodule::dataplane::smartmodule::{
-    SmartModuleInitInput, SmartModuleInitOutput, SmartModuleInitErrorStatus, SmartModuleWindowInput, SmartModuleWindowOutput,
+    SmartModuleInitErrorStatus, SmartModuleWindowInput, SmartModuleWindowOutput,
 };
 use wasmtime::{AsContextMut, TypedFunc};
 
@@ -58,7 +58,6 @@ impl SmartModuleWindow {
                     } else {
                         Err(anyhow::anyhow!("Window Error not found"))
                     }
-                   
                 }
                 _ => Err(internal_error.into()),
             }

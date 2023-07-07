@@ -9,6 +9,7 @@ mod aggregate;
 mod init;
 mod transform;
 mod look_back;
+mod window;
 pub mod opt;
 
 pub fn generate_smartmodule(config: &SmartModuleConfig, func: &SmartModuleFn) -> TokenStream {
@@ -20,5 +21,6 @@ pub fn generate_smartmodule(config: &SmartModuleConfig, func: &SmartModuleFn) ->
         SmartModuleKind::ArrayMap => self::array_map::generate_array_map_smartmodule(func),
         SmartModuleKind::Init => self::init::generate_init_smartmodule(func),
         SmartModuleKind::LookBack => self::look_back::generate_look_back_smartmodule(func),
+        SmartModuleKind::Window => self::window::generate_window_smartmodule(func),
     }
 }

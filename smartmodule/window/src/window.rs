@@ -197,16 +197,8 @@ mod stats_lock_free {
 }
 
 mod stats {
-    use std::{
-        sync::atomic::{AtomicU64, Ordering, AtomicU32},
-        fmt,
-        ops::{Deref, DerefMut},
-    };
 
-    use serde::{
-        Serialize, Deserialize, Serializer, Deserializer,
-        de::{Visitor, self},
-    };
+    use serde::{Serialize};
 
     #[derive(Debug, Default, Serialize)]
     pub struct RollingMean {
@@ -231,8 +223,7 @@ mod stats {
     }
 
     mod test {
-
-        use super::*;
+        use crate::window::RollingMean;
 
         #[test]
         fn rolling_mean() {

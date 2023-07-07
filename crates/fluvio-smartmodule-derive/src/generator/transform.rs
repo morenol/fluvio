@@ -24,10 +24,11 @@ pub(crate) fn generate_transform(
                 use fluvio_smartmodule::dataplane::core::{Encoder, Decoder};
                 use fluvio_smartmodule::dataplane::record::{Record, RecordData};
 
-                // DECODING
                 extern "C" {
                     fn copy_records(putr: i32, len: i32);
                 }
+
+                // DECODING
 
                 let input_data = Vec::from_raw_parts(ptr, len, len);
                 let mut smartmodule_input = SmartModuleInput::default();
