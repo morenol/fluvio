@@ -17,6 +17,7 @@ pub mod dataplane {
     pub mod smartmodule {
         pub use crate::input::*;
         pub use crate::output::*;
+
         pub use crate::error::*;
         pub use fluvio_protocol::link::smartmodule::*;
     }

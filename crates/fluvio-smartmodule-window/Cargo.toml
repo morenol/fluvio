@@ -10,22 +10,10 @@ repository = "https://github.com/infinyon/fluvio"
 description = "Used by Fluvio SmartModule"
 
 [lib]
-bench = false
 crate-type = ['lib']
-
-[[bench]]
-name = "bench"
-harness = false
 
 [dependencies]
 tracing = { workspace = true }
 thiserror = { workspace = true }
-eyre = { version = ">=0.6.8", default-features = false, features = [
-    "auto-install",
-] }
 chrono = { workspace = true }
 fluvio-protocol = { workspace = true, features = [ "link"] }
-
-[dev-dependencies]
-criterion = "0.4.0"
-trybuild = { git = "https://github.com/infinyon/trybuild", branch = "check_option" }

@@ -2945,6 +2945,7 @@ dependencies = [
  "eyre",
  "fluvio-protocol",
  "fluvio-smartmodule-derive",
+ "fluvio-smartmodule-window",
  "thiserror",
  "tracing",
  "trybuild 1.0.42",
@@ -2957,6 +2958,16 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.25",
+]
+
+[[package]]
+name = "fluvio-smartmodule-window"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "fluvio-protocol",
+ "thiserror",
+ "tracing",
 ]
 
 [[package]]

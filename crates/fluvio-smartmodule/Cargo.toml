@@ -30,6 +30,7 @@ eyre = { version = ">=0.6.8", default-features = false, features = [
 ] }
 chrono = { workspace = true }
 fluvio-smartmodule-derive = { version = "0.6.0", path = "../fluvio-smartmodule-derive" }
+fluvio-smartmodule-window = { version = "0.1.0", path = "../fluvio-smartmodule-window" }
 fluvio-protocol = { workspace = true, features = [ "link"] }
 
 [dev-dependencies]
