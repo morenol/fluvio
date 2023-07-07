@@ -18,6 +18,7 @@ use super::look_back::SmartModuleLookBack;
 use super::metrics::SmartModuleChainMetrics;
 use super::state::WasmState;
 use super::transforms::create_transform;
+use super::window::SmartModuleWindow;
 
 #[derive(Clone)]
 pub struct SmartEngine(Engine);
@@ -70,7 +71,8 @@ impl SmartModuleChainBuilder {
             let init = SmartModuleInit::try_instantiate(&ctx, &mut state)?;
             let look_back = SmartModuleLookBack::try_instantiate(&ctx, &mut state)?;
             let transform = create_transform(&ctx, config.initial_data, &mut state)?;
-            let mut instance = SmartModuleInstance::new(ctx, init, look_back, transform);
+            let window = SmartModuleWindow::try_instantiate(&ctx, &mut state)?;
+            let mut instance = SmartModuleInstance::new(ctx, init, look_back, transform,window);
             instance.call_init(&mut state)?;
             instances.push(instance);
         }

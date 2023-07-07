@@ -10,6 +10,7 @@ use fluvio_protocol::{Encoder, Decoder};
 
 use fluvio_smartmodule::dataplane::smartmodule::{
     SmartModuleExtraParams, SmartModuleInput, SmartModuleOutput, SmartModuleInitInput,
+    SmartModuleWindowInput,
 };
 
 use crate::engine::config::Lookback;
@@ -17,6 +18,7 @@ use crate::engine::config::Lookback;
 use super::error::EngineError;
 use super::init::SmartModuleInit;
 use super::look_back::SmartModuleLookBack;
+use super::window::SmartModuleWindow;
 use super::{WasmSlice, memory};
 use super::state::WasmState;
 
@@ -24,6 +26,7 @@ pub(crate) struct SmartModuleInstance {
     ctx: SmartModuleInstanceContext,
     init: Option<SmartModuleInit>,
     look_back: Option<SmartModuleLookBack>,
+    window: Option<SmartModuleWindow>,
     transform: Box<dyn DowncastableTransform>,
 }
 
@@ -44,12 +47,14 @@ impl SmartModuleInstance {
         init: Option<SmartModuleInit>,
         look_back: Option<SmartModuleLookBack>,
         transform: Box<dyn DowncastableTransform>,
+        window: Option<SmartModuleWindow>,
     ) -> Self {
         Self {
             ctx,
             init,
             look_back,
             transform,
+            window,
         }
     }
 
@@ -74,9 +79,13 @@ impl SmartModuleInstance {
         }
     }
 
-    pub(crate) fn call_window(&mut self, store: &mut impl AsContextMut) -> Result<(), Error> {
-        if let Some(ref mut window) = self.ctx.params.window {
-            window.call(&mut self.ctx, store)
+    pub(crate) fn call_window(
+        &mut self,
+        input: SmartModuleWindowInput,
+        store: &mut impl AsContextMut,
+    ) -> Result<(), Error> {
+        if let Some(ref mut window) = self.window {
+            window.call(input, &mut self.ctx, store)
         } else {
             Ok(())
         }

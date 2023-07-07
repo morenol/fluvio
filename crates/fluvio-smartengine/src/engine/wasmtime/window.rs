@@ -3,7 +3,7 @@ use std::fmt::Debug;
 
 use anyhow::{Result, Ok};
 use fluvio_smartmodule::dataplane::smartmodule::{
-    SmartModuleInitInput, SmartModuleInitOutput, SmartModuleInitErrorStatus,
+    SmartModuleInitInput, SmartModuleInitOutput, SmartModuleInitErrorStatus, SmartModuleWindowInput, SmartModuleWindowOutput,
 };
 use wasmtime::{AsContextMut, TypedFunc};
 
@@ -53,7 +53,12 @@ impl SmartModuleWindow {
             match internal_error {
                 SmartModuleInitErrorStatus::InitError => {
                     let output: SmartModuleWindowOutput = ctx.read_output(store)?;
-                    Err(output.error.into())
+                    if let Some(error) = output.error {
+                        Err(error.into())
+                    } else {
+                        Err(anyhow::anyhow!("Window Error not found"))
+                    }
+                   
                 }
                 _ => Err(internal_error.into()),
             }
