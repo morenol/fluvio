@@ -18,7 +18,7 @@ pub fn generate_window_smartmodule(func: &SmartModuleFn) -> TokenStream {
             #[allow(clippy::missing_safety_doc)]
             pub unsafe fn window(ptr: *mut u8, len: usize, version: i16) -> i32 {
                 use fluvio_smartmodule::dataplane::smartmodule::{
-                    SmartModuleWindowInput, SmartModuleKind, SmartModuleWindowErrorStatus,
+                    SmartModuleWindowInput, SmartModuleKind, window::SmartModuleWindowErrorStatus,
                     SmartModuleWindowOutput, SmartModuleWindowRuntimeError,
                 };
                 use fluvio_smartmodule::dataplane::core::{Encoder, Decoder};
