@@ -1,4 +1,5 @@
 mod vehicle;
+mod host;
 
 use std::sync::{OnceLock, Mutex};
 

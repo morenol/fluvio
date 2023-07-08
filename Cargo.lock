@@ -8314,7 +8314,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "window-example"
+name = "window-helsinki"
 version = "0.0.0"
 dependencies = [
  "chrono",
