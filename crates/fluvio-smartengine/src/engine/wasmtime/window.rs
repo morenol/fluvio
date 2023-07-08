@@ -39,11 +39,11 @@ impl SmartModuleWindow {
     /// initialize SmartModule
     pub(crate) fn call(
         &mut self,
-        input: SmartModuleWindowInput,
+        input: &SmartModuleWindowInput,
         ctx: &mut SmartModuleInstanceContext,
         store: &mut impl AsContextMut,
     ) -> Result<()> {
-        let slice = ctx.write_input(&input, &mut *store)?;
+        let slice = ctx.write_input(input, &mut *store)?;
         let window_output = self.0.call(&mut *store, slice)?;
 
         if window_output < 0 {

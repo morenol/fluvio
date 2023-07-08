@@ -6,7 +6,7 @@ use fluvio_smartmodule::Record;
 use tracing::debug;
 use wasmtime::{Engine, Module};
 
-use fluvio_smartmodule::dataplane::smartmodule::{SmartModuleInput, SmartModuleOutput};
+use fluvio_smartmodule::dataplane::smartmodule::{SmartModuleInput, SmartModuleOutput, SmartModuleWindowInput};
 
 use crate::SmartModuleConfig;
 use crate::engine::config::Lookback;
@@ -186,7 +186,7 @@ impl SmartModuleChainInstance {
         Ok(())
     }
 
-    pub fn update_window(&mut self, metrics: &SmartModuleChainMetrics) -> Result<()> {
+    pub fn update_window(&mut self, window: &SmartModuleWindowInput, metrics: &SmartModuleChainMetrics) -> Result<()> {
         debug!(
             "update_window on chain with {} instances",
             self.instances.len()
@@ -196,7 +196,7 @@ impl SmartModuleChainInstance {
             self.store.top_up_fuel();
 
             // TODO! pass right input
-            instance.call_window(Default::default(), &mut self.store)?;
+            instance.call_window(window, &mut self.store)?;
 
             let fuel_used = self.store.get_used_fuel();
             debug!(fuel_used, "fuel used");

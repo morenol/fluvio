@@ -81,7 +81,7 @@ impl SmartModuleInstance {
 
     pub(crate) fn call_window(
         &mut self,
-        input: SmartModuleWindowInput,
+        input: &SmartModuleWindowInput,
         store: &mut impl AsContextMut,
     ) -> Result<(), Error> {
         if let Some(ref mut window) = self.window {

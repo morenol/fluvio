@@ -1,6 +1,7 @@
 use std::{sync::Arc, time::Duration};
 use std::time::Instant;
 
+use fluvio_smartmodule::dataplane::smartmodule::SmartModuleWindowInput;
 use tracing::{debug, error, instrument, trace, warn};
 use tokio::select;
 
@@ -229,6 +230,8 @@ impl StreamFetchHandler {
         // window timer
         let mut window_timer = sleep(Duration::from_secs(5));
 
+        let mut window = SmartModuleWindowInput::default();
+
         loop {
             counter += 1;
             debug!(
@@ -247,7 +250,7 @@ impl StreamFetchHandler {
 
                 _ = &mut window_timer => {
                     if let Some(sm_ctx) =  maybe_sm_ctx.as_mut() {
-                        if let Err(err) = sm_ctx.chain_mut().update_window(self.metrics.chain_metrics()) {
+                        if let Err(err) = sm_ctx.chain_mut().update_window(&window, self.metrics.chain_metrics()) {
                             error!(%err, "error updating window");
 
                         }
