@@ -19,7 +19,7 @@ use_serde = ["serde"]
 [dependencies]
 tracing = { workspace = true }
 thiserror = { workspace = true }
-chrono = { version = "0.4.23", default-features = false }
+chrono = { workspace = true}
 serde = { workspace = true,  features = ["derive"], optional = true }
 fluvio-protocol = { workspace = true, features = [ "link"] }
 

@@ -11,7 +11,7 @@ crate-type = ['cdylib']
 [dependencies]
 serde = { workspace = true,  features = ["derive"] }
 serde_json = { workspace = true }
-chrono = { version = "0.4.23", features = ["serde"], default-features = false}
+chrono = { workspace = true, features = ["serde"]}
 
 fluvio-smartmodule = { workspace = true, features = ["smartmodule"] }
 fluvio-smartmodule-window = { workspace = true, features = ["use_serde"]}
