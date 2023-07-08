@@ -72,7 +72,7 @@ impl SmartModuleChainBuilder {
             let look_back = SmartModuleLookBack::try_instantiate(&ctx, &mut state)?;
             let transform = create_transform(&ctx, config.initial_data, &mut state)?;
             let window = SmartModuleWindow::try_instantiate(&ctx, &mut state)?;
-            let mut instance = SmartModuleInstance::new(ctx, init, look_back, transform,window);
+            let mut instance = SmartModuleInstance::new(ctx, init, look_back, transform, window);
             instance.call_init(&mut state)?;
             instances.push(instance);
         }
@@ -182,6 +182,25 @@ impl SmartModuleChainInstance {
                 metrics.add_fuel_used(fuel_used);
                 result?;
             }
+        }
+        Ok(())
+    }
+
+    pub fn update_window(&mut self, metrics: &SmartModuleChainMetrics) -> Result<()> {
+        debug!(
+            "update_window on chain with {} instances",
+            self.instances.len()
+        );
+        for instance in self.instances.iter_mut() {
+            debug!("update_window on instance");
+            self.store.top_up_fuel();
+
+            // TODO! pass right input
+            instance.call_window(Default::default(), &mut self.store)?;
+
+            let fuel_used = self.store.get_used_fuel();
+            debug!(fuel_used, "fuel used");
+            metrics.add_fuel_used(fuel_used);
         }
         Ok(())
     }

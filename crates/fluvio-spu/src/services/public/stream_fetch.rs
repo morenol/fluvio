@@ -214,10 +214,10 @@ impl StreamFetchHandler {
     async fn process(
         mut self,
         starting_offset: Offset,
-        mut sm_ctx: Option<SmartModuleContext>,
+        mut maybe_sm_ctx: Option<SmartModuleContext>,
     ) -> Result<(), StreamFetchError> {
         let (mut last_partition_offset, consumer_wait) = self
-            .send_back_records(starting_offset, sm_ctx.as_mut())
+            .send_back_records(starting_offset, maybe_sm_ctx.as_mut())
             .await?;
 
         let mut leader_offset_receiver = self.leader_state.offset_listener(&self.isolation);
@@ -226,11 +226,8 @@ impl StreamFetchHandler {
         let mut last_known_consumer_offset: Option<Offset> =
             (!consumer_wait).then_some(last_partition_offset);
 
-        
-        // window timer 
+        // window timer
         let mut window_timer = sleep(Duration::from_secs(5));
-
-        
 
         loop {
             counter += 1;
@@ -249,8 +246,16 @@ impl StreamFetchHandler {
 
 
                 _ = &mut window_timer => {
+                    if let Some(sm_ctx) =  maybe_sm_ctx.as_mut() {
+                        if let Err(err) = sm_ctx.chain_mut().update_window(self.metrics.chain_metrics()) {
+                            error!(%err, "error updating window");
+
+                        }
+                    } else {
+
+                        break;
+                    }
                     debug!("window timer has been received, updating window");
-                    break;
                 },
 
                 // Received offset update from consumer, i.e. consumer acknowledged to this offset
@@ -277,7 +282,7 @@ impl StreamFetchHandler {
                         last_partition_offset,
                         "Consumer offset updated and is behind, need to send records",
                     );
-                    let (offset, wait) = self.send_back_records(consumer_offset_update, sm_ctx.as_mut()).await?;
+                    let (offset, wait) = self.send_back_records(consumer_offset_update, maybe_sm_ctx.as_mut()).await?;
                     last_partition_offset = offset;
                     if wait {
                         last_known_consumer_offset = None;
@@ -318,7 +323,7 @@ impl StreamFetchHandler {
 
                     // We need to send the consumer all records since the last consumer offset
                     debug!(partition_offset_update, last_consumer_offset, "reading offset event");
-                    let (offset, wait) = self.send_back_records(last_consumer_offset, sm_ctx.as_mut()).await?;
+                    let (offset, wait) = self.send_back_records(last_consumer_offset, maybe_sm_ctx.as_mut()).await?;
                     last_partition_offset = offset;
                     if wait {
                         last_known_consumer_offset = None;
@@ -543,8 +548,7 @@ impl StreamFetchHandler {
         Ok((next_offset, true))
     }
 
-
-     /// send back records back to consumer
+    /// send back records back to consumer
     /// return (next offset, consumer wait)
     //  consumer wait flag tells that there are records send back to consumer
     #[instrument(
@@ -556,11 +560,7 @@ impl StreamFetchHandler {
         starting_offset: Offset,
         sm_ctx: Option<&mut SmartModuleContext>,
     ) -> Result<(), StreamFetchError> {
-
-
-
         Ok(())
-
     }
 }
 
