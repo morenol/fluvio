@@ -12,7 +12,6 @@ use fluvio_smartmodule::{
 use fluvio_smartmodule_window::window::TumblingWindow;
 use vehicle::{MQTTEvent, DefaultWindowState, VehicleStatistics};
 
-
 #[smartmodule(init)]
 fn init(_params: SmartModuleExtraParams) -> Result<()> {
     STATE

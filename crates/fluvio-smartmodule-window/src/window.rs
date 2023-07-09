@@ -59,8 +59,6 @@ mod stats_lock_free {
         ops::{Deref, DerefMut},
     };
 
-    
-
     #[derive(Debug, Default)]
     pub struct AtomicF64(AtomicU64);
 
@@ -118,7 +116,6 @@ mod stats_lock_free {
             }
         }
 
-
         impl<'de> Visitor<'de> for AtomicF64Visitor {
             type Value = AtomicF64;
 
@@ -147,15 +144,10 @@ mod stats_lock_free {
                 deserializer.deserialize_f64(AtomicF64Visitor)
             }
         }
-
-        
     }
 
     #[derive(Debug, Default)]
-    #[cfg_attr(
-        feature = "use_serde",
-        derive(serde::Serialize),
-    )]
+    #[cfg_attr(feature = "use_serde", derive(serde::Serialize))]
     pub struct LockFreeRollingMean {
         #[cfg_attr(feature = "use_serde", serde(skip))]
         count: AtomicU32,
@@ -187,10 +179,9 @@ mod stats_lock_free {
             speed: AtomicF64,
         }
 
-        
         #[test]
         fn rolling_mean() {
-            let rm  = LockFreeRollingMean::default();
+            let rm = LockFreeRollingMean::default();
             rm.add(3.2);
             assert_eq!(rm.mean(), 3.2);
             rm.add(4.2);
@@ -201,10 +192,8 @@ mod stats_lock_free {
         mod test_serde {
 
             use serde::{Serialize, Deserialize};
-            
-            use super::*;
 
-            
+            use super::*;
 
             #[test]
             fn test_f64_serialize() {
@@ -222,18 +211,13 @@ mod stats_lock_free {
                 assert_eq!(test.speed.load(), 9.13);
             }
         }
-
     }
 }
 
 mod stats {
 
-
     #[derive(Debug, Default)]
-    #[cfg_attr(
-        feature = "use_serde",
-        derive(serde::Serialize),
-    )]
+    #[cfg_attr(feature = "use_serde", derive(serde::Serialize))]
     pub struct RollingMean {
         #[cfg_attr(feature = "use_serde", serde(skip))]
         count: u32,
@@ -257,16 +241,78 @@ mod stats {
 
     #[cfg(test)]
     mod test {
-        
+
         use super::*;
 
         #[test]
         fn rolling_mean() {
-            let mut rm  = RollingMean::default();
+            let mut rm = RollingMean::default();
             rm.add(3.2);
             assert_eq!(rm.mean(), 3.2);
             rm.add(4.2);
             assert_eq!(rm.mean(), 3.7);
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use chrono::{DateTime, Utc, FixedOffset};
+
+    use super::RollingMean;
+    use super::TumblingWindow;
+
+    type KEY = u16;
+
+    #[derive(Debug, Default)]
+    struct TestValue {
+        speed: f64,
+        time: DateTime<Utc>,
+    }
+
+    #[derive(Debug, Default)]
+    struct TestState {
+        key: KEY,
+        speed: RollingMean,
+    }
+
+    impl super::WindowState<KEY, TestValue> for TestState {
+        fn new_with_key(key: KEY) -> Self {
+            Self {
+                key,
+                speed: RollingMean::default(),
+            }
+        }
+
+        fn add(&mut self, _key: &KEY, value: &TestValue) {
+            self.speed.add(value.speed);
+        }
+    }
+
+    type DefaultTumblingWindow = TumblingWindow<KEY, TestValue, TestState>;
+
+    #[test]
+    fn test_add() {
+        let mut window = DefaultTumblingWindow::new();
+
+        let v1 = TestValue {
+            speed: 3.2,
+            time: DateTime::<FixedOffset>::parse_from_str("2023-06-22T19:45:22.002Z", "%+")
+                .expect("parse")
+                .into(),
+        };
+
+        window.add(22, &v1);
+
+        let v2 = TestValue {
+            speed: 4.2,
+            time: DateTime::<FixedOffset>::parse_from_str("2023-06-22T19:45:22.033Z", "%+")
+                .expect("parse")
+                .into(),
+        };
+
+        window.add(22, &v2);
+
+        assert_eq!(window.get_state(&22).unwrap().speed.mean(), 3.7);
     }
 }

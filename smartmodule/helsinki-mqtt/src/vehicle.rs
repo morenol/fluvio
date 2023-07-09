@@ -2,8 +2,6 @@ use fluvio_smartmodule_window::window::{TumblingWindow, RollingMean, WindowState
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
 
-
-
 type Key = u16;
 pub type DefaultWindowState = TumblingWindow<Key, VehiclePosition, VehicleStatistics>;
 

@@ -6,7 +6,9 @@ use fluvio_smartmodule::Record;
 use tracing::debug;
 use wasmtime::{Engine, Module};
 
-use fluvio_smartmodule::dataplane::smartmodule::{SmartModuleInput, SmartModuleOutput, SmartModuleWindowInput};
+use fluvio_smartmodule::dataplane::smartmodule::{
+    SmartModuleInput, SmartModuleOutput, SmartModuleWindowInput,
+};
 
 use crate::SmartModuleConfig;
 use crate::engine::config::Lookback;
@@ -186,7 +188,11 @@ impl SmartModuleChainInstance {
         Ok(())
     }
 
-    pub fn update_window(&mut self, window: &SmartModuleWindowInput, metrics: &SmartModuleChainMetrics) -> Result<()> {
+    pub fn update_window(
+        &mut self,
+        window: &SmartModuleWindowInput,
+        metrics: &SmartModuleChainMetrics,
+    ) -> Result<()> {
         debug!(
             "update_window on chain with {} instances",
             self.instances.len()
