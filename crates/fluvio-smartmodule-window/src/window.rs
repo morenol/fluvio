@@ -5,9 +5,33 @@ use std::hash::{Hash};
 //pub use util::{AtomicF64,RollingMean};
 pub use stats::RollingMean;
 
-use crate::UTC;
+use crate::time::UTC;
+
 
 type TimeStamp = i64;
+
+/// Fluvio timestmap representing nanoseconds since UNIX epoch
+pub struct FluvioTimeStamp(i64);
+
+impl From<i64> for FluvioTimeStamp {
+    fn from(timestamp: i64) -> Self {
+        Self(timestamp)
+    }
+}
+
+const MILLI_PER_SEC: i64 = 1_000;
+const MICRO_PER_SEC: i64 = 1_000_000;
+const NANOS_PER_SEC: i64 = 1_000_000_000;
+
+impl FluvioTimeStamp {
+    pub fn new(timestamp: i64) -> Self {
+        Self(timestamp)
+    }
+
+    pub fn nearest(&self,duration: &Duration) -> Self {
+        Self(self.0 - (self.0 % duration.as_nanos() as i64))
+    }
+}
 
 pub trait Value {
     type Key;
@@ -85,7 +109,7 @@ where
     V: Value,
     S: WindowStates<V>,
 {
-    window: i64, // window in seconds
+    window_size: Duration,      // window duration
     current_window: Option<TimeWindow<V, S>>,
     future_windows: Vec<TimeWindow<V, S>>,
 }
@@ -101,6 +125,30 @@ where
 
         //let ts = value.timestamp();
         //let window = ts - (ts % self.window);       // round to nearest second
+
+        // first check if we have current window
+        // if not, then we need to create one as first
+        // following code is naive approach where events are assumed to be in time order
+
+        if let Some(current_window) = &mut self.current_window {
+            /* 
+            if value.timestamp() < current_window.start {
+                // we need to create new window
+                let window = value.timestamp() - (value.timestamp() % self.window);       // round to nearest second
+                let new_window = TimeWindow::new(window, self.window);
+                self.future_windows.push(new_window);
+            } else {
+                // we are still in current window
+                current_window.add(value);
+            }*/
+        } else {
+            /* 
+            // we need to create new window
+            let window = value.timestamp() - (value.timestamp() % self.window);       // round to nearest second
+            let new_window = TimeWindow::new(window, self.window);
+            self.future_windows.push(new_window);
+            */
+        }
     }
 }
 
