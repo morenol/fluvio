@@ -30,7 +30,7 @@ impl FluvioTime {
 
     /// new base time to nearest seconds
     pub fn align_seconds(&self, seconds: u32) -> Self {
-        Self(self.0 - (self.0 % MICRO_PER_SEC * seconds as i64))
+        Self(self.0 - (self.0 % (MICRO_PER_SEC * seconds as i64)))
     }
 
     pub fn timestamp_micros(&self) -> i64 {
@@ -53,24 +53,46 @@ mod tests {
     #[test]
     fn test_conversion() {
         let t = FluvioTime::parse_from_str("2023-06-22T19:45:22.033Z").expect("parse");
-        assert_eq!(t.as_utc().unwrap(), DateTime::<FixedOffset>::parse_from_str("2023-06-22T19:45:22.033Z", "%+").expect("parse"));
+        assert_eq!(
+            t.as_utc().unwrap(),
+            DateTime::<FixedOffset>::parse_from_str("2023-06-22T19:45:22.033Z", "%+")
+                .expect("parse")
+        );
     }
-
 
     #[test]
     fn test_nearest() {
         let t = FluvioTime::parse_from_str("2023-06-22T19:45:22.033Z").expect("parse");
-        assert_eq!( t.align_seconds(1), FluvioTime::parse_from_str("2023-06-22T19:45:22.000Z").expect("parse"));
+        assert_eq!(
+            t.align_seconds(1),
+            FluvioTime::parse_from_str("2023-06-22T19:45:22.000Z").expect("parse")
+        );
 
-        
-        assert_eq!( t.align_seconds(5), FluvioTime::parse_from_str("2023-06-22T19:45:20.000Z").expect("parse"));
-        assert_eq!( t.align_seconds(60), FluvioTime::parse_from_str("2023-06-22T19:45:00.000Z").expect("parse"));
-        assert_eq!( t.align_seconds(300), FluvioTime::parse_from_str("2023-06-22T19:45:00.000Z").expect("parse"));   // 5min
+        assert_eq!(
+            t.align_seconds(5),
+            FluvioTime::parse_from_str("2023-06-22T19:45:20.000Z").expect("parse")
+        );
+        assert_eq!(
+            t.align_seconds(60),
+            FluvioTime::parse_from_str("2023-06-22T19:45:00.000Z").expect("parse")
+        );
+        assert_eq!(
+            t.align_seconds(300),
+            FluvioTime::parse_from_str("2023-06-22T19:45:00.000Z").expect("parse")
+        ); // 5min
 
-        
-        let t2 =  FluvioTime::parse_from_str("2023-06-22T19:46:22.033Z").expect("parse");
-        assert_eq!( t2.align_seconds(5), FluvioTime::parse_from_str("2023-06-22T19:46:20.000Z").expect("parse"));
-        assert_eq!( t2.align_seconds(300), FluvioTime::parse_from_str("2023-06-22T19:45:00.000Z").expect("parse"));
-        assert_eq!( t2.align_seconds(3600), FluvioTime::parse_from_str("2023-06-22T19:00:00.000Z").expect("parse")); //1 hr
+        let t2 = FluvioTime::parse_from_str("2023-06-22T19:46:22.033Z").expect("parse");
+        assert_eq!(
+            t2.align_seconds(5),
+            FluvioTime::parse_from_str("2023-06-22T19:46:20.000Z").expect("parse")
+        );
+        assert_eq!(
+            t2.align_seconds(300),
+            FluvioTime::parse_from_str("2023-06-22T19:45:00.000Z").expect("parse")
+        );
+        assert_eq!(
+            t2.align_seconds(3600),
+            FluvioTime::parse_from_str("2023-06-22T19:00:00.000Z").expect("parse")
+        ); //1 hr
     }
 }
