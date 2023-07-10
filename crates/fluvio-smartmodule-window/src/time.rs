@@ -6,7 +6,7 @@ use chrono::{DateTime, FixedOffset, NaiveDateTime};
 pub type UTC = chrono::DateTime<chrono::Utc>;
 
 /// Efficient time represention for use in Fluvio
-/// Make following assumption, this will fit into maximum time fit into nanoseconds since EPOCH
+/// Make following assumption, this will fit into maximum time fit into microseconds since EPOCH
 /// and UTC timezone
 #[derive(Debug, Clone, Copy, Default, Ord, PartialOrd, Eq, PartialEq)]
 pub struct FluvioTime(i64);
