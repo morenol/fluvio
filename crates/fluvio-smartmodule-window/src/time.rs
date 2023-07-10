@@ -13,7 +13,7 @@ pub struct FluvioTime(i64);
 
 impl From<UTC> for FluvioTime {
     fn from(timestamp: UTC) -> Self {
-        Self(timestamp.timestamp_nanos())
+        Self(timestamp.timestamp_micros())
     }
 }
 
@@ -33,7 +33,7 @@ impl FluvioTime {
         Self(self.0 - (self.0 % MICRO_PER_SEC * seconds as i64))
     }
 
-    pub fn timestamp_nanos(&self) -> i64 {
+    pub fn timestamp_micros(&self) -> i64 {
         self.0
     }
 
