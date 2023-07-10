@@ -1,14 +1,37 @@
+use std::time::Duration;
 use std::{marker::PhantomData, collections::HashMap};
 use std::hash::{Hash};
 
 //pub use util::{AtomicF64,RollingMean};
 pub use stats::RollingMean;
 
+use crate::UTC;
+
+type TimeStamp = i64;
+
+pub trait Value {
+    type Key;
+
+    fn timestamp(&self) -> TimeStamp;
+}
+
+pub trait WindowStates<V: Value> {
+    fn new_with_key(key: V::Key) -> Self;
+
+    fn add(&mut self, key: &V::Key, value: &V);
+}
+
+pub trait WindowState<K, V> {
+    fn new_with_key(key: K) -> Self;
+    fn add(&mut self, key: &K, value: &V);
+}
+
 #[derive(Debug, Default)]
 pub struct TumblingWindow<K, V, S> {
     phantom: PhantomData<K>,
     phantom2: PhantomData<V>,
     store: HashMap<K, S>,
+    watermark: WaterMark,
 }
 
 impl<K, V, S> TumblingWindow<K, V, S>
@@ -21,6 +44,7 @@ where
             phantom: PhantomData,
             phantom2: PhantomData,
             store: HashMap::new(),
+            watermark: WaterMark::new(),
         }
     }
 
@@ -45,10 +69,49 @@ where
     }
 }
 
-pub trait WindowState<K, V> {
-    fn new_with_key(key: K) -> Self;
+pub struct TimeWindow<V, S>
+where
+    V: Value,
+    S: WindowStates<V>,
+{
+    start: TimeStamp,
+    duration: Duration,
+    state: HashMap<TimeStamp, HashMap<V::Key, S>>,
+}
 
-    fn add(&mut self, key: &K, value: &V);
+/// split state by time
+pub struct TimeSortedStates<V, S>
+where
+    V: Value,
+    S: WindowStates<V>,
+{
+    window: i64, // window in seconds
+    current_window: Option<TimeWindow<V, S>>,
+    future_windows: Vec<TimeWindow<V, S>>,
+}
+
+impl<V, S> TimeSortedStates<V, S>
+where
+    V: Value,
+    S: WindowStates<V>,
+{
+    /// add new value based on time
+    /// if time is not found, it will be created
+    pub fn add(&mut self, value: &V) {
+
+        //let ts = value.timestamp();
+        //let window = ts - (ts % self.window);       // round to nearest second
+    }
+}
+
+/// watermark
+#[derive(Debug, Default)]
+pub struct WaterMark {}
+
+impl WaterMark {
+    pub fn new() -> Self {
+        Self {}
+    }
 }
 
 // lock free stats
