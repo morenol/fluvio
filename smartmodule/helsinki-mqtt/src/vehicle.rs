@@ -1,12 +1,12 @@
 use fluvio_smartmodule_window::{
-    window::{TumblingWindow, WindowState},
+    window::{TumblingWindow, Value, WindowStates},
     mean::RollingMean,
 };
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
 
 type Key = u16;
-pub type DefaultWindowState = TumblingWindow<Key, VehiclePosition, VehicleStatistics>;
+pub type DefaultWindowState = TumblingWindow<VehiclePosition, VehicleStatistics>;
 
 /// business logic
 #[derive(Debug, Deserialize)]
@@ -49,7 +49,17 @@ pub struct VehiclePosition {
     pub occu: u16, // Integer describing passenger occupancy level of the vehicle. Valid values are on interval [0, 100]. Currently passenger occupancy level is only available for Suomenlinna ferries as a proof-of-concept. The value will be available shortly after departure when the ferry operator has registered passenger count for the journey.For other vehicles, currently only values used are 0 (= vehicle has space and is accepting passengers) and 100 (= vehicle is full and might not accept passengers)
 }
 
-impl VehiclePosition {}
+impl Value for VehiclePosition {
+    type Key = Key;
+
+    fn key(&self) -> &Self::Key {
+        &self.veh
+    }
+
+    fn time(&self) -> fluvio_smartmodule_window::time::FluvioTime {
+        todo!()
+    }
+}
 
 #[derive(Debug, Serialize)]
 pub struct VehicleStatistics {
@@ -66,8 +76,8 @@ impl Default for VehicleStatistics {
     }
 }
 
-impl WindowState<Key, VehiclePosition> for VehicleStatistics {
-    fn add(&mut self, _key: &Key, value: &VehiclePosition) {
+impl WindowStates<VehiclePosition> for VehicleStatistics {
+    fn add(&mut self, _key: Key, value: VehiclePosition) {
         self.avg_speed.add(value.spd as f64);
     }
 

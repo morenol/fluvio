@@ -9,13 +9,12 @@ use fluvio_smartmodule::{
     RecordData,
 };
 
-use fluvio_smartmodule_window::window::TumblingWindow;
 use vehicle::{MQTTEvent, DefaultWindowState, VehicleStatistics};
 
 #[smartmodule(init)]
 fn init(_params: SmartModuleExtraParams) -> Result<()> {
     STATE
-        .set(Mutex::new(TumblingWindow::new()))
+        .set(Mutex::new(DefaultWindowState::new(10)))
         .map_err(|err| eyre!("state init: {:#?}", err))
 }
 
@@ -26,20 +25,18 @@ pub fn filter_map(record: &Record) -> Result<Option<(Option<RecordData>, RecordD
     let mqtt: MQTTEvent = serde_json::from_slice(record.value.as_ref())?;
     let event = mqtt.payload.VP;
 
-    // for now emit same event
-
-    let key = event.veh.to_string();
-
     // add to state
     let mut stats = STATE.get().unwrap().lock().unwrap();
-    stats.add(event.veh, &event);
+    if let Some(window_completed) = stats.add(event) {
+        let summary: Vec<&VehicleStatistics> = window_completed.summary();
 
-    let summary: Vec<&VehicleStatistics> = stats.summary();
-
-    Ok(Some((
-        None,
-        RecordData::from(serde_json::to_string(&summary)?),
-    )))
+        Ok(Some((
+            None,
+            RecordData::from(serde_json::to_string(&summary)?),
+        )))
+    } else {
+        Ok(None)
+    }
 }
 
 #[smartmodule(window)]

@@ -1,5 +1,6 @@
 use std::time::Duration;
-use std::{marker::PhantomData, collections::HashMap};
+use std::fmt::Debug;
+use std::{collections::HashMap};
 use std::hash::{Hash};
 
 use crate::time::FluvioTime;
@@ -38,54 +39,7 @@ pub trait WindowStates<V: Value> {
     fn add(&mut self, key: V::Key, value: V);
 }
 
-pub trait WindowState<K, V> {
-    fn new_with_key(key: K) -> Self;
-    fn add(&mut self, key: &K, value: &V);
-}
-
-#[derive(Debug, Default)]
-pub struct TumblingWindow<K, V, S> {
-    phantom: PhantomData<K>,
-    phantom2: PhantomData<V>,
-    store: HashMap<K, S>,
-    _watermark: WaterMark,
-}
-
-impl<K, V, S> TumblingWindow<K, V, S>
-where
-    S: Default + WindowState<K, V>,
-    K: PartialEq + Eq + Hash + Clone,
-{
-    pub fn new() -> Self {
-        Self {
-            phantom: PhantomData,
-            phantom2: PhantomData,
-            store: HashMap::new(),
-            _watermark: WaterMark::new(),
-        }
-    }
-
-    /// add new value to state
-    pub fn add(&mut self, key: K, value: &V) {
-        if let Some(state) = self.store.get_mut(&key) {
-            state.add(&key, value);
-        } else {
-            self.store.insert(key.clone(), S::new_with_key(key.clone()));
-            if let Some(state) = self.store.get_mut(&key) {
-                state.add(&key, value);
-            }
-        }
-    }
-
-    pub fn get_state(&self, key: &K) -> Option<&S> {
-        self.store.get(key)
-    }
-
-    pub fn summary(&self) -> Vec<&S> {
-        self.store.values().collect()
-    }
-}
-
+#[derive(Debug)]
 pub struct TimeWindow<V, S>
 where
     V: Value,
@@ -132,12 +86,22 @@ where
         }
         None
     }
+
+    pub fn get_state(&self, key: &V::Key) -> Option<&S> {
+        self.state.get(key)
+    }
+
+    pub fn summary(&self) -> Vec<&S> {
+        self.state.values().collect()
+    }
 }
 
 /// split state by time
-pub struct TimeSortedStates<V, S>
+#[derive(Debug)]
+pub struct TumblingWindow<V, S>
 where
-    V: Value,
+    V: Value + Debug,
+    V::Key: Debug,
     S: WindowStates<V>,
 {
     window_size_sec: u16, // window size in seconds
@@ -145,9 +109,10 @@ where
     _future_windows: Vec<TimeWindow<V, S>>,
 }
 
-impl<V, S> TimeSortedStates<V, S>
+impl<V, S> TumblingWindow<V, S>
 where
-    V: Value,
+    V: Value + Debug,
+    V::Key: Debug,
     S: WindowStates<V>,
     V::Key: PartialEq + Eq + Hash + Clone,
 {
@@ -207,7 +172,7 @@ mod test {
     use crate::window::MICRO_PER_SEC;
 
     use super::{TumblingWindow, TimeWindow};
-    use super::{TimeSortedStates, Value, WindowStates, WindowState};
+    use super::{Value, WindowStates};
 
     type KEY = u16;
 
@@ -252,49 +217,7 @@ mod test {
         }
     }
 
-    impl WindowState<KEY, TestValue> for TestState {
-        fn new_with_key(key: KEY) -> Self {
-            Self {
-                key,
-                speed: RollingMean::default(),
-            }
-        }
-
-        fn add(&mut self, _key: &KEY, value: &TestValue) {
-            self.speed.add(value.speed);
-        }
-    }
-
-    type DefaultTumblingWindow = TumblingWindow<KEY, TestValue, TestState>;
-
-    #[test]
-    fn test_add() {
-        let mut window = DefaultTumblingWindow::new();
-
-        let v1 = TestValue {
-            speed: 3.2,
-            vehicle: VEH1,
-            time: DateTime::<FixedOffset>::parse_from_str("2023-06-22T19:45:22.002Z", "%+")
-                .expect("parse")
-                .into(),
-        };
-
-        window.add(22, &v1);
-
-        let v2 = TestValue {
-            speed: 4.2,
-            vehicle: VEH2,
-            time: DateTime::<FixedOffset>::parse_from_str("2023-06-22T19:45:22.033Z", "%+")
-                .expect("parse")
-                .into(),
-        };
-
-        window.add(22, &v2);
-
-        assert_eq!(window.get_state(&22).unwrap().speed.mean(), 3.7);
-    }
-
-    type DefaultSortedWindow = TimeSortedStates<TestValue, TestState>;
+    type DefaulTumblingWindow = TumblingWindow<TestValue, TestState>;
 
     type DefaultTimeWindow = TimeWindow<TestValue, TestState>;
     #[test]
@@ -329,7 +252,7 @@ mod test {
 
     #[test]
     fn test_add_to_states() {
-        let mut window = DefaultSortedWindow::new(10);
+        let mut window = DefaulTumblingWindow::new(10);
         assert!(window.current_window.is_none());
 
         let v1 = TestValue {
