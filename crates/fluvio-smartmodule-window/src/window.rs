@@ -39,7 +39,7 @@ pub trait Value {
 pub trait WindowStates<V: Value> {
     fn new_with_key(key: V::Key) -> Self;
 
-    fn add(&mut self, key: &V::Key, value: &V);
+    fn add(&mut self, key: V::Key, value: V);
 }
 
 pub trait WindowState<K, V> {
@@ -114,14 +114,14 @@ where
         }
     }
 
-    pub fn add(&mut self, value: &V) {
+    pub fn add(&mut self, value: V) {
         let key = value.key();
         if let Some(state) = self.state.get_mut(&key) {
-            state.add(&key, value);
+            state.add(key.to_owned(), value);
         } else {
             self.state.insert(key.clone(), S::new_with_key(key.clone()));
             if let Some(state) = self.state.get_mut(&key) {
-                state.add(&key, value);
+                state.add(key.to_owned(), value);
             }
         }
     }
@@ -155,7 +155,7 @@ where
 
     /// add new value based on time
     /// if time is not found, it will be created
-    pub fn add(&mut self, value: &V) {
+    pub fn add(&mut self, value: V) {
         let event_time = value.time();
         let window_base = event_time.align_seconds(self.window_size_sec as u32);
 
@@ -246,7 +246,7 @@ mod test {
             }
         }
 
-        fn add(&mut self, _key: &KEY, value: &TestValue) {
+        fn add(&mut self, _key: KEY, value: TestValue) {
             self.speed.add(value.speed);
         }
     } 
@@ -299,6 +299,19 @@ mod test {
     fn test_add_new_value_to_empty_window() {
 
         let mut window = DefaultSortedWindow::new(10);
+        assert!(window.current_window.is_none());
+
+        let v1 = TestValue {
+            speed: 3.2,
+            vehicle: VEH1,
+            time: DateTime::<FixedOffset>::parse_from_str("2023-06-22T19:45:22.132Z", "%+")
+                .expect("parse")
+                .into(),
+        };
+
+
+        window.add(v1);
+        assert!(window.current_window.is_some());
 
     }
 }
