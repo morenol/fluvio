@@ -2,9 +2,7 @@ use std::time::Duration;
 use std::{marker::PhantomData, collections::HashMap};
 use std::hash::{Hash};
 
-use crate::time::{UTC, FluvioTime};
-
-type TimeStamp = i64;
+use crate::time::FluvioTime;
 
 /// Fluvio timestmap representing nanoseconds since UNIX epoch
 pub struct FluvioTimeStamp(i64);
@@ -15,9 +13,7 @@ impl From<i64> for FluvioTimeStamp {
     }
 }
 
-const MILLI_PER_SEC: i64 = 1_000;
 const MICRO_PER_SEC: i64 = 1_000_000;
-const NANOS_PER_SEC: i64 = 1_000_000_000;
 
 impl FluvioTimeStamp {
     pub fn new(timestamp: i64) -> Self {
@@ -52,7 +48,7 @@ pub struct TumblingWindow<K, V, S> {
     phantom: PhantomData<K>,
     phantom2: PhantomData<V>,
     store: HashMap<K, S>,
-    watermark: WaterMark,
+    _watermark: WaterMark,
 }
 
 impl<K, V, S> TumblingWindow<K, V, S>
@@ -65,7 +61,7 @@ where
             phantom: PhantomData,
             phantom2: PhantomData,
             store: HashMap::new(),
-            watermark: WaterMark::new(),
+            _watermark: WaterMark::new(),
         }
     }
 
@@ -121,10 +117,9 @@ where
     /// try to add value to window
     /// if value can't fit into window, return back
     pub fn add(&mut self, time: &FluvioTime, value: V) -> Option<V> {
-
-        if time.timestamp_micros() > self.start.timestamp_micros() + self.duration_in_micros{
-           return Some(value)
-        } 
+        if time.timestamp_micros() > self.start.timestamp_micros() + self.duration_in_micros {
+            return Some(value);
+        }
 
         let key = value.key();
         if let Some(state) = self.state.get_mut(&key) {
@@ -156,7 +151,6 @@ where
     S: WindowStates<V>,
     V::Key: PartialEq + Eq + Hash + Clone,
 {
-
     pub fn new(window_size_sec: u16) -> Self {
         Self {
             window_size_sec,
@@ -168,29 +162,24 @@ where
     /// add new value based on time
     /// if time is not found, it will be created
     /// if current window is expired, previous will be returned
-    pub fn add(&mut self, value: V) -> Option<TimeWindow<V,S>> {
+    pub fn add(&mut self, value: V) -> Option<TimeWindow<V, S>> {
         let event_time = value.time();
         let window_base = event_time.align_seconds(self.window_size_sec as u32);
 
         if let Some(current_window) = &mut self.current_window {
-            
-            /*
-            if value.timestamp() < current_window.start {
-                // we need to create new window
-                let window = value.timestamp() - (value.timestamp() % self.window);       // round to nearest second
-                let new_window = TimeWindow::new(window, self.window);
-                self.future_windows.push(new_window);
+            if let Some(new_value) = current_window.add(&event_time, value) {
+                // current window is full, we need to create new window
+                let mut current_window = TimeWindow::new(window_base, self.window_size_sec);
+                current_window.add(&event_time, new_value);
+                std::mem::replace(&mut self.current_window, Some(current_window))
             } else {
-                // we are still in current window
-                current_window.add(value);
-            }*/
-            None
+                None
+            }
         } else {
             let mut current_window = TimeWindow::new(window_base, self.window_size_sec);
             current_window.add(&event_time, value);
             self.current_window = Some(current_window);
             None
-            
         }
     }
 }
@@ -218,14 +207,14 @@ mod test {
     use crate::window::MICRO_PER_SEC;
 
     use super::{TumblingWindow, TimeWindow};
-    use super::{TimeSortedStates,Value,WindowStates,WindowState};
+    use super::{TimeSortedStates, Value, WindowStates, WindowState};
 
     type KEY = u16;
 
     const VEH1: KEY = 22;
     const VEH2: KEY = 33;
 
-    #[derive(Debug, Default,Clone,PartialEq)]
+    #[derive(Debug, Default, Clone, PartialEq)]
     struct TestValue {
         speed: f64,
         vehicle: KEY,
@@ -261,7 +250,7 @@ mod test {
         fn add(&mut self, _key: KEY, value: TestValue) {
             self.speed.add(value.speed);
         }
-    } 
+    }
 
     impl WindowState<KEY, TestValue> for TestState {
         fn new_with_key(key: KEY) -> Self {
@@ -310,7 +299,10 @@ mod test {
     type DefaultTimeWindow = TimeWindow<TestValue, TestState>;
     #[test]
     fn test_window_add() {
-        let mut w = DefaultTimeWindow::new(FluvioTime::parse_from_str("2023-06-22T19:45:20.000Z").unwrap(),10);
+        let mut w = DefaultTimeWindow::new(
+            FluvioTime::parse_from_str("2023-06-22T19:45:20.000Z").unwrap(),
+            10,
+        );
 
         let v1 = TestValue {
             speed: 3.2,
@@ -319,7 +311,6 @@ mod test {
                 .expect("parse")
                 .into(),
         };
-
 
         assert!(w.add(&v1.time(), v1).is_none());
 
@@ -333,15 +324,11 @@ mod test {
 
         let out = w.add(&v2.time(), v2.clone());
         assert!(out.is_some());
-        assert_eq!(out.unwrap(),v2);
-
+        assert_eq!(out.unwrap(), v2);
     }
 
-
-
     #[test]
-    fn test_add_new_value_to_empty_window() {
-
+    fn test_add_to_states() {
         let mut window = DefaultSortedWindow::new(10);
         assert!(window.current_window.is_none());
 
@@ -353,14 +340,37 @@ mod test {
                 .into(),
         };
 
-
-        window.add(v1);
+        assert!(window.add(v1).is_none());
         assert!(window.current_window.is_some());
         let current_window = window.current_window.as_ref().unwrap();
-        assert_eq!(current_window.start, FluvioTime::parse_from_str("2023-06-22T19:45:20.000Z").unwrap());
-        assert_eq!(current_window.duration_in_micros(), 10* MICRO_PER_SEC);
+        assert_eq!(
+            current_window.start,
+            FluvioTime::parse_from_str("2023-06-22T19:45:20.000Z").unwrap()
+        );
+        assert_eq!(current_window.duration_in_micros(), 10 * MICRO_PER_SEC);
         assert_eq!(current_window.state.len(), 1);
         assert_eq!(current_window.state.get(&VEH1).unwrap().speed.mean(), 3.2);
 
+        let v2 = TestValue {
+            speed: 4.2,
+            vehicle: VEH1,
+            time: DateTime::<FixedOffset>::parse_from_str("2023-06-22T19:45:22.132Z", "%+")
+                .expect("parse")
+                .into(),
+        };
+
+        assert!(window.add(v2).is_none());
+
+        // try to add out of window
+
+        let v3 = TestValue {
+            speed: 4.2,
+            vehicle: VEH1,
+            time: DateTime::<FixedOffset>::parse_from_str("2023-06-22T19:45:35.132Z", "%+")
+                .expect("parse")
+                .into(),
+        };
+
+        assert!(window.add(v3).is_some());
     }
 }
