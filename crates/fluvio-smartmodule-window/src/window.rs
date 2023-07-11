@@ -32,7 +32,7 @@ impl FluvioTimeStamp {
 pub trait Value {
     type Key;
 
-    fn key(&self) -> Self::Key;
+    fn key(&self) -> &Self::Key;
     fn time(&self) -> FluvioTime;
 }
 
@@ -144,6 +144,15 @@ where
     S: WindowStates<V>,
     V::Key: PartialEq + Eq + Hash + Clone,
 {
+
+    pub fn new(window_size_sec: u16) -> Self {
+        Self {
+            window_size_sec,
+            current_window: None,
+            future_windows: vec![],
+        }
+    }
+
     /// add new value based on time
     /// if time is not found, it will be created
     pub fn add(&mut self, value: &V) {
@@ -194,15 +203,33 @@ mod test {
     use chrono::{DateTime, Utc, FixedOffset};
 
     use crate::mean::RollingMean;
+    use crate::time::FluvioTime;
 
     use super::TumblingWindow;
+    use super::{TimeSortedStates,Value,WindowStates,WindowState};
 
     type KEY = u16;
+
+    const VEH1: KEY = 22;
+    const VEH2: KEY = 33;
 
     #[derive(Debug, Default)]
     struct TestValue {
         speed: f64,
+        vehicle: KEY,
         time: DateTime<Utc>,
+    }
+
+    impl Value for TestValue {
+        type Key = KEY;
+
+        fn key(&self) -> &Self::Key {
+            &self.vehicle
+        }
+
+        fn time(&self) -> FluvioTime {
+            self.time.into()
+        }
     }
 
     #[derive(Debug, Default)]
@@ -211,7 +238,20 @@ mod test {
         speed: RollingMean,
     }
 
-    impl super::WindowState<KEY, TestValue> for TestState {
+    impl WindowStates<TestValue> for TestState {
+        fn new_with_key(key: KEY) -> Self {
+            Self {
+                key,
+                speed: RollingMean::default(),
+            }
+        }
+
+        fn add(&mut self, _key: &KEY, value: &TestValue) {
+            self.speed.add(value.speed);
+        }
+    } 
+
+    impl WindowState<KEY, TestValue> for TestState {
         fn new_with_key(key: KEY) -> Self {
             Self {
                 key,
@@ -232,6 +272,7 @@ mod test {
 
         let v1 = TestValue {
             speed: 3.2,
+            vehicle: VEH1,
             time: DateTime::<FixedOffset>::parse_from_str("2023-06-22T19:45:22.002Z", "%+")
                 .expect("parse")
                 .into(),
@@ -241,6 +282,7 @@ mod test {
 
         let v2 = TestValue {
             speed: 4.2,
+            vehicle: VEH2,
             time: DateTime::<FixedOffset>::parse_from_str("2023-06-22T19:45:22.033Z", "%+")
                 .expect("parse")
                 .into(),
@@ -249,5 +291,14 @@ mod test {
         window.add(22, &v2);
 
         assert_eq!(window.get_state(&22).unwrap().speed.mean(), 3.7);
+    }
+
+    type DefaultSortedWindow = TimeSortedStates<TestValue, TestState>;
+
+    #[test]
+    fn test_add_new_value_to_empty_window() {
+
+        let mut window = DefaultSortedWindow::new(10);
+
     }
 }
