@@ -23,7 +23,7 @@ pub struct Payload {
 /// city of Helinski metro event
 /// https://digitransit.fi/en/developers/apis/4-realtime-api/vehicle-positions/high-frequency-positioning/
 ///
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize,Serialize,Clone)]
 pub struct VehiclePosition {
     pub desi: String,       // Route number visible to passengers.
     pub lat: f32,           // WGS 84 latitude in degrees. null if location is unavailable.
@@ -57,7 +57,7 @@ impl Value for VehiclePosition {
     }
 
     fn time(&self) -> fluvio_smartmodule_window::time::FluvioTime {
-        todo!()
+        self.tst.into()
     }
 }
 

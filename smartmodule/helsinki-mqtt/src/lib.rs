@@ -25,24 +25,46 @@ pub fn filter_map(record: &Record) -> Result<Option<(Option<RecordData>, RecordD
     let mqtt: MQTTEvent = serde_json::from_slice(record.value.as_ref())?;
     let event = mqtt.payload.VP;
 
+    Ok(Some((
+        None,
+        RecordData::from(serde_json::to_string(&event)?),
+    )))
+    
+    /* 
     // add to state
     let mut stats = STATE.get().unwrap().lock().unwrap();
-    if let Some(window_completed) = stats.add(event) {
+    if let Some(window_completed) = stats.add(event.clone()) {
+        /* 
         let summary: Vec<&VehicleStatistics> = window_completed.summary();
 
         Ok(Some((
             None,
             RecordData::from(serde_json::to_string(&summary)?),
         )))
+        */
+        Ok(Some((
+            None,
+            RecordData::from(serde_json::to_string(&event)?),
+        )))
+
     } else {
-        Ok(None)
+        Ok(Some((
+            None,
+            RecordData::from(serde_json::to_string(&event)?),
+        )))
+      //  Ok(None)
     }
+    */
+    
+    
 }
 
+/* 
 #[smartmodule(window)]
 fn window(input: SmartModuleWindowInput) -> Result<Vec<(Option<RecordData>, RecordData)>> {
     todo!()
 }
+*/
 
 // TODO: window API. this need to be called by
 /*

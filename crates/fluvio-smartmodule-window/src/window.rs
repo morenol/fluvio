@@ -129,6 +129,7 @@ where
     /// if current window is expired, previous will be returned
     pub fn add(&mut self, value: V) -> Option<TimeWindow<V, S>> {
         let event_time = value.time();
+
         let window_base = event_time.align_seconds(self.window_size_sec as u32);
 
         if let Some(current_window) = &mut self.current_window {
