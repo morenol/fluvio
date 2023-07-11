@@ -5,7 +5,7 @@ use std::hash::{Hash};
 //pub use util::{AtomicF64,RollingMean};
 pub use stats::RollingMean;
 
-use crate::time::UTC;
+use crate::time::{UTC, FluvioTime};
 
 
 type TimeStamp = i64;
@@ -36,7 +36,8 @@ impl FluvioTimeStamp {
 pub trait Value {
     type Key;
 
-    fn timestamp(&self) -> TimeStamp;
+    fn key(&self) -> Self::Key;
+    fn time(&self) -> FluvioTime;
 }
 
 pub trait WindowStates<V: Value> {
@@ -97,10 +98,38 @@ pub struct TimeWindow<V, S>
 where
     V: Value,
     S: WindowStates<V>,
-{
-    start: TimeStamp,
+{    
+    start: FluvioTime,
     duration: Duration,
-    state: HashMap<TimeStamp, HashMap<V::Key, S>>,
+    state: HashMap<V::Key, S>
+}
+
+impl <V,S>  TimeWindow<V,S> 
+where
+    V: Value,
+    S: WindowStates<V>,
+    V::Key: PartialEq + Eq + Hash + Clone,
+{
+    pub fn new(start: FluvioTime, duration_in_seconds: u16) -> Self {
+        Self {
+            start,
+            duration: Duration::from_secs(duration_in_seconds as u64),
+            state: HashMap::new(),
+        }
+    }
+
+    pub fn add(&mut self, value: &V) {
+        let key = value.key();
+        if let Some(state) = self.state.get_mut(&key) {
+            state.add(&key, value);
+        } else {
+            self.state.insert(key.clone(), S::new_with_key(key.clone()));
+            if let Some(state) = self.state.get_mut(&key) {
+                state.add(&key, value);
+            }
+        }
+    }
+
 }
 
 /// split state by time
@@ -109,7 +138,7 @@ where
     V: Value,
     S: WindowStates<V>,
 {
-    window_size: Duration,      // window duration
+    window_size_sec: u16,      // window size in seconds
     current_window: Option<TimeWindow<V, S>>,
     future_windows: Vec<TimeWindow<V, S>>,
 }
@@ -118,17 +147,14 @@ impl<V, S> TimeSortedStates<V, S>
 where
     V: Value,
     S: WindowStates<V>,
+    V::Key: PartialEq + Eq + Hash + Clone,
 {
     /// add new value based on time
     /// if time is not found, it will be created
     pub fn add(&mut self, value: &V) {
 
-        //let ts = value.timestamp();
-        //let window = ts - (ts % self.window);       // round to nearest second
-
-        // first check if we have current window
-        // if not, then we need to create one as first
-        // following code is naive approach where events are assumed to be in time order
+        let event_time = value.time();
+        let window_base = event_time.align_seconds(self.window_size_sec as u32);
 
         if let Some(current_window) = &mut self.current_window {
             /* 
@@ -142,6 +168,9 @@ where
                 current_window.add(value);
             }*/
         } else {
+            let mut current_window = TimeWindow::new(window_base, self.window_size_sec);
+            current_window.add(value);
+            self.current_window = Some(current_window);
             /* 
             // we need to create new window
             let window = value.timestamp() - (value.timestamp() % self.window);       // round to nearest second
