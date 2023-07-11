@@ -1,4 +1,7 @@
-use fluvio_smartmodule_window::window::{TumblingWindow, RollingMean, WindowState};
+use fluvio_smartmodule_window::{
+    window::{TumblingWindow, WindowState},
+    mean::RollingMean,
+};
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
 
