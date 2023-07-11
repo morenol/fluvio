@@ -96,7 +96,7 @@ where
     S: WindowStates<V>,
 {
     start: FluvioTime,
-    duration: Duration,
+    duration_in_micros: i64,
     state: HashMap<V::Key, S>,
 }
 
@@ -106,15 +106,26 @@ where
     S: WindowStates<V>,
     V::Key: PartialEq + Eq + Hash + Clone,
 {
-    pub fn new(start: FluvioTime, duration_in_seconds: u16) -> Self {
+    pub fn new(start: FluvioTime, duration_in_secs: u16) -> Self {
         Self {
             start,
-            duration: Duration::from_secs(duration_in_seconds as u64),
+            duration_in_micros: duration_in_secs as i64 * MICRO_PER_SEC,
             state: HashMap::new(),
         }
     }
 
-    pub fn add(&mut self, value: V) {
+    pub fn duration_in_micros(&self) -> i64 {
+        self.duration_in_micros
+    }
+
+    /// try to add value to window
+    /// if value can't fit into window, return back
+    pub fn add(&mut self, time: &FluvioTime, value: V) -> Option<V> {
+
+        if time.timestamp_micros() > self.start.timestamp_micros() + self.duration_in_micros{
+           return Some(value)
+        } 
+
         let key = value.key();
         if let Some(state) = self.state.get_mut(&key) {
             state.add(key.to_owned(), value);
@@ -124,6 +135,7 @@ where
                 state.add(key.to_owned(), value);
             }
         }
+        None
     }
 }
 
@@ -135,7 +147,7 @@ where
 {
     window_size_sec: u16, // window size in seconds
     current_window: Option<TimeWindow<V, S>>,
-    future_windows: Vec<TimeWindow<V, S>>,
+    _future_windows: Vec<TimeWindow<V, S>>,
 }
 
 impl<V, S> TimeSortedStates<V, S>
@@ -149,17 +161,19 @@ where
         Self {
             window_size_sec,
             current_window: None,
-            future_windows: vec![],
+            _future_windows: vec![],
         }
     }
 
     /// add new value based on time
     /// if time is not found, it will be created
-    pub fn add(&mut self, value: V) {
+    /// if current window is expired, previous will be returned
+    pub fn add(&mut self, value: V) -> Option<TimeWindow<V,S>> {
         let event_time = value.time();
         let window_base = event_time.align_seconds(self.window_size_sec as u32);
 
         if let Some(current_window) = &mut self.current_window {
+            
             /*
             if value.timestamp() < current_window.start {
                 // we need to create new window
@@ -170,16 +184,13 @@ where
                 // we are still in current window
                 current_window.add(value);
             }*/
+            None
         } else {
             let mut current_window = TimeWindow::new(window_base, self.window_size_sec);
-            current_window.add(value);
+            current_window.add(&event_time, value);
             self.current_window = Some(current_window);
-            /*
-            // we need to create new window
-            let window = value.timestamp() - (value.timestamp() % self.window);       // round to nearest second
-            let new_window = TimeWindow::new(window, self.window);
-            self.future_windows.push(new_window);
-            */
+            None
+            
         }
     }
 }
@@ -204,8 +215,9 @@ mod test {
 
     use crate::mean::RollingMean;
     use crate::time::FluvioTime;
+    use crate::window::MICRO_PER_SEC;
 
-    use super::TumblingWindow;
+    use super::{TumblingWindow, TimeWindow};
     use super::{TimeSortedStates,Value,WindowStates,WindowState};
 
     type KEY = u16;
@@ -213,7 +225,7 @@ mod test {
     const VEH1: KEY = 22;
     const VEH2: KEY = 33;
 
-    #[derive(Debug, Default)]
+    #[derive(Debug, Default,Clone,PartialEq)]
     struct TestValue {
         speed: f64,
         vehicle: KEY,
@@ -295,6 +307,38 @@ mod test {
 
     type DefaultSortedWindow = TimeSortedStates<TestValue, TestState>;
 
+    type DefaultTimeWindow = TimeWindow<TestValue, TestState>;
+    #[test]
+    fn test_window_add() {
+        let mut w = DefaultTimeWindow::new(FluvioTime::parse_from_str("2023-06-22T19:45:20.000Z").unwrap(),10);
+
+        let v1 = TestValue {
+            speed: 3.2,
+            vehicle: VEH1,
+            time: DateTime::<FixedOffset>::parse_from_str("2023-06-22T19:45:22.132Z", "%+")
+                .expect("parse")
+                .into(),
+        };
+
+
+        assert!(w.add(&v1.time(), v1).is_none());
+
+        let v2 = TestValue {
+            speed: 3.2,
+            vehicle: VEH1,
+            time: DateTime::<FixedOffset>::parse_from_str("2023-06-22T19:45:50.132Z", "%+")
+                .expect("parse")
+                .into(),
+        };
+
+        let out = w.add(&v2.time(), v2.clone());
+        assert!(out.is_some());
+        assert_eq!(out.unwrap(),v2);
+
+    }
+
+
+
     #[test]
     fn test_add_new_value_to_empty_window() {
 
@@ -312,6 +356,11 @@ mod test {
 
         window.add(v1);
         assert!(window.current_window.is_some());
+        let current_window = window.current_window.as_ref().unwrap();
+        assert_eq!(current_window.start, FluvioTime::parse_from_str("2023-06-22T19:45:20.000Z").unwrap());
+        assert_eq!(current_window.duration_in_micros(), 10* MICRO_PER_SEC);
+        assert_eq!(current_window.state.len(), 1);
+        assert_eq!(current_window.state.get(&VEH1).unwrap().speed.mean(), 3.2);
 
     }
 }
