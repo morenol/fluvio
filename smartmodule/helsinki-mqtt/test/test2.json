@@ -1,0 +1,29 @@
+{
+    "mqtt_topic": "/hfp/v2/journey/ongoing/vp/train/0090/01071/3002X3/2/Helsinki/22:00/1174552/5/60;24/19/74/40",
+    "payload": {
+        "VP": {
+            "desi": "X",
+            "dir": "2",
+            "oper": 90,
+            "veh": 1071,
+            "tst": "2023-07-11T23:27:14.554Z",
+            "tsi": 1689118034,
+            "spd": 0.0,
+            "hdg": null,
+            "lat": 60.174404,
+            "long": 24.94097,
+            "acc": 0.0,
+            "dl": -13154,
+            "odo": 0,
+            "drst": 0,
+            "oday": "2023-07-11",
+            "jrn": 9999,
+            "line": 930,
+            "start": "22:00",
+            "loc": "GPS",
+            "stop": 1020552,
+            "route": "3002X3",
+            "occu": 0
+        }
+    }
+}

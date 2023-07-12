@@ -22,13 +22,21 @@ static STATE: OnceLock<Mutex<DefaultWindowState>> = OnceLock::new();
 
 #[smartmodule(filter_map)]
 pub fn filter_map(record: &Record) -> Result<Option<(Option<RecordData>, RecordData)>> {
+    
     let mqtt: MQTTEvent = serde_json::from_slice(record.value.as_ref())?;
-    let event = mqtt.payload.VP;
-
-    Ok(Some((
-        None,
-        RecordData::from(serde_json::to_string(&event)?),
-    )))
+    if let Some(vp) = mqtt.payload.VP {
+        if vp.spd.is_some() {
+            Ok(Some((
+                None,
+                RecordData::from(serde_json::to_string(&vp)?),
+            )))
+        } else {
+            Ok(None)
+        }
+        
+    } else {
+        Ok(None)
+    }
     
     /* 
     // add to state
