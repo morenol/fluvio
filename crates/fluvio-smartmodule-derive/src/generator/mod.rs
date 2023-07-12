@@ -7,6 +7,7 @@ mod array_map;
 mod filter_map;
 mod aggregate;
 mod init;
+mod materialize;
 mod transform;
 mod look_back;
 mod window;
@@ -22,5 +23,6 @@ pub fn generate_smartmodule(config: &SmartModuleConfig, func: &SmartModuleFn) ->
         SmartModuleKind::Init => self::init::generate_init_smartmodule(func),
         SmartModuleKind::LookBack => self::look_back::generate_look_back_smartmodule(func),
         SmartModuleKind::Window => self::window::generate_window_smartmodule(func),
+        SmartModuleKind::Materialize => self::materialize::generate_materialize_smartmodule(func),
     }
 }

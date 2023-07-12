@@ -18,6 +18,7 @@ members = [
     "map_double",
     "map_json",
     "map_regex",
+    "materialize",
     "array_map_json_array",
     "array_map_json_object",
     "array_map_json_reddit",
@@ -26,7 +27,7 @@ members = [
 
 [workspace.dependencies]
 fluvio-smartmodule = { path = "../../crates/fluvio-smartmodule" }
-
+fluvio-protocol = { path = "../../crates/fluvio-protocol" }
 
 # lto is need to reduce wasm binary size
 [profile.release]

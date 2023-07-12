@@ -12,6 +12,9 @@ pub type Result<T> = eyre::Result<T>;
 pub mod memory;
 
 pub use fluvio_protocol::record::{Record, RecordData};
+
+pub mod state;
+
 /// remap to old data plane
 pub mod dataplane {
     pub mod smartmodule {

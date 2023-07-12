@@ -32,6 +32,7 @@ pub enum SmartModuleKind {
     Map,
     ArrayMap,
     FilterMap,
+    Materialize,
 }
 
 impl SmartModuleKind {
@@ -50,6 +51,7 @@ impl SmartModuleKind {
             "init" => Some(Self::Init),
             "look_back" => Some(Self::LookBack),
             "window" => Some(Self::Window),
+            "materialize" => Some(Self::Materialize),
             _ => None,
         };
 

@@ -63,9 +63,11 @@ pub(crate) fn process_batch<R: SmartModuleInputBatch>(
 
         let now = Instant::now();
 
-        let input = SmartModuleInput::new(input_batch.records().clone(), input_batch.base_offset());
+        let input: SmartModuleInput =
+            SmartModuleInput::new(input_batch.records().clone(), input_batch.base_offset());
 
-        let output = sm_chain_instance.process(input, metric)?;
+        let output: fluvio_smartmodule::dataplane::smartmodule::SmartModuleOutput =
+            sm_chain_instance.process(input, metric)?;
 
         debug!(smartmodule_execution_time = %now.elapsed().as_millis());
 
