@@ -15,6 +15,12 @@ impl From<UTC> for FluvioTime {
     }
 }
 
+impl Into<Option<UTC>> for FluvioTime {
+    fn into(self) -> Option<UTC> {
+        NaiveDateTime::from_timestamp_micros(self.0).map(|naive| naive.and_utc())
+    }
+}
+
 const MICRO_PER_SEC: i64 = 1000 * 1000;
 
 impl FluvioTime {
@@ -33,6 +39,10 @@ impl FluvioTime {
 
     pub fn timestamp_micros(&self) -> i64 {
         self.0
+    }
+
+    pub fn add_micro_seconds(&self, ts_microseconds: i64) -> Self {
+        Self(self.0 + ts_microseconds)
     }
 
     /// convert back to UtC

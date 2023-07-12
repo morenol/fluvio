@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use std::{collections::HashMap};
 use std::hash::{Hash};
 
-use crate::time::FluvioTime;
+use crate::time::{FluvioTime, UTC};
 
 /// Fluvio timestmap representing nanoseconds since UNIX epoch
 pub struct FluvioTimeStamp(i64);
@@ -38,6 +38,21 @@ pub trait WindowStates<V: Value> {
 
     fn add(&mut self, key: V::Key, value: V);
 }
+
+#[cfg_attr(feature = "use_serde", derive(serde::Serialize))]
+pub struct WindowSummary<V,S>
+where
+    V: Value,
+    S: WindowStates<V>
+ {
+    start: UTC,
+    end: UTC,
+    values: Vec<S>,
+    #[cfg_attr(feature = "use_serde", serde(skip))]
+    phantom: std::marker::PhantomData<V>,
+}
+
+
 
 #[derive(Debug)]
 pub struct TimeWindow<V, S>
@@ -91,8 +106,14 @@ where
         self.state.get(key)
     }
 
-    pub fn summary(&self) -> Vec<&S> {
-        self.state.values().collect()
+    pub fn summary(self) -> WindowSummary<V,S> {
+        WindowSummary {
+            start: <FluvioTime as Into<Option<UTC>>>::into(self.start).unwrap(),
+            end: <FluvioTime as Into<Option<UTC>>>::into(self.start.add_micro_seconds(self.duration_in_micros)).unwrap(),
+            values: self.state.into_values().collect(),
+            phantom: std::marker::PhantomData,
+
+        }
     }
 }
 

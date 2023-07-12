@@ -26,10 +26,34 @@ pub fn filter_map(record: &Record) -> Result<Option<(Option<RecordData>, RecordD
     let mqtt: MQTTEvent = serde_json::from_slice(record.value.as_ref())?;
     if let Some(vp) = mqtt.payload.VP {
         if vp.spd.is_some() {
+
+            let mut stats = STATE.get().unwrap().lock().unwrap();
+            if let Some(window_completed) = stats.add(vp.clone()) {
+                
+                let summary = window_completed.summary();
+
+                Ok(Some((
+                    None,
+                    RecordData::from(serde_json::to_string(&summary)?),
+                )))
+                
+
+            } else {
+                /* 
+                Ok(Some((
+                    None,
+                    RecordData::from(serde_json::to_string(&vp)?),
+                )))
+                */
+                  Ok(None)
+            }
+
+            /* 
             Ok(Some((
                 None,
                 RecordData::from(serde_json::to_string(&vp)?),
             )))
+            */
         } else {
             Ok(None)
         }
@@ -38,31 +62,7 @@ pub fn filter_map(record: &Record) -> Result<Option<(Option<RecordData>, RecordD
         Ok(None)
     }
     
-    /* 
-    // add to state
-    let mut stats = STATE.get().unwrap().lock().unwrap();
-    if let Some(window_completed) = stats.add(event.clone()) {
-        /* 
-        let summary: Vec<&VehicleStatistics> = window_completed.summary();
-
-        Ok(Some((
-            None,
-            RecordData::from(serde_json::to_string(&summary)?),
-        )))
-        */
-        Ok(Some((
-            None,
-            RecordData::from(serde_json::to_string(&event)?),
-        )))
-
-    } else {
-        Ok(Some((
-            None,
-            RecordData::from(serde_json::to_string(&event)?),
-        )))
-      //  Ok(None)
-    }
-    */
+   
     
     
 }
