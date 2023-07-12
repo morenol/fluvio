@@ -14,7 +14,7 @@ use vehicle::{MQTTEvent, DefaultWindowState, VehicleStatistics};
 #[smartmodule(init)]
 fn init(_params: SmartModuleExtraParams) -> Result<()> {
     STATE
-        .set(Mutex::new(DefaultWindowState::new(10)))
+        .set(Mutex::new(DefaultWindowState::new(60)))
         .map_err(|err| eyre!("state init: {:#?}", err))
 }
 
