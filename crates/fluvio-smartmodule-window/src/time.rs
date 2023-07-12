@@ -15,6 +15,12 @@ impl From<UTC> for FluvioTime {
     }
 }
 
+impl From<&UTC> for FluvioTime {
+    fn from(timestamp: &UTC) -> Self {
+        Self(timestamp.timestamp_micros())
+    }
+}
+
 impl Into<Option<UTC>> for FluvioTime {
     fn into(self) -> Option<UTC> {
         NaiveDateTime::from_timestamp_micros(self.0).map(|naive| naive.and_utc())

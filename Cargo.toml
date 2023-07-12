@@ -53,7 +53,8 @@ members = [
     "crates/cargo-builder",
     "connector/json-test-connector",
     "connector/sink-test-connector",
-    "smartmodule/helsinki-mqtt"
+    "smartmodule/helsinki-mqtt",
+    "poc/openmeter"
 ]
 
 exclude = ["smartmodule/regex-filter"]

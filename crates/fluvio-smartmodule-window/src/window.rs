@@ -29,8 +29,8 @@ impl FluvioTimeStamp {
 pub trait Value {
     type Key;
 
-    fn key(&self) -> &Self::Key;
-    fn time(&self) -> FluvioTime;
+    fn key(&self) -> Option<&Self::Key>;
+    fn time(&self) -> Option<FluvioTime>;
 }
 
 pub trait WindowStates<V: Value> {
@@ -90,16 +90,19 @@ where
             return Some(value);
         }
 
-        let key = value.key();
-        if let Some(state) = self.state.get_mut(&key) {
-            state.add(key.to_owned(), value);
-        } else {
-            self.state.insert(key.clone(), S::new_with_key(key.clone()));
+        if let Some(key)  = value.key() {
             if let Some(state) = self.state.get_mut(&key) {
                 state.add(key.to_owned(), value);
+            } else {
+                self.state.insert(key.clone(), S::new_with_key(key.clone()));
+                if let Some(state) = self.state.get_mut(&key) {
+                    state.add(key.to_owned(), value);
+                }
             }
+            None
+        } else {
+            None
         }
-        None
     }
 
     pub fn get_state(&self, key: &V::Key) -> Option<&S> {
@@ -149,23 +152,27 @@ where
     /// if time is not found, it will be created
     /// if current window is expired, previous will be returned
     pub fn add(&mut self, value: V) -> Option<TimeWindow<V, S>> {
-        let event_time = value.time();
 
-        let window_base = event_time.align_seconds(self.window_size_sec as u32);
+        if let Some(event_time) = value.time() {
 
-        if let Some(current_window) = &mut self.current_window {
-            if let Some(new_value) = current_window.add(&event_time, value) {
-                // current window is full, we need to create new window
-                let mut current_window = TimeWindow::new(window_base, self.window_size_sec);
-                current_window.add(&event_time, new_value);
-                std::mem::replace(&mut self.current_window, Some(current_window))
+            let window_base = event_time.align_seconds(self.window_size_sec as u32);
+
+            if let Some(current_window) = &mut self.current_window {
+                if let Some(new_value) = current_window.add(&event_time, value) {
+                    // current window is full, we need to create new window
+                    let mut current_window = TimeWindow::new(window_base, self.window_size_sec);
+                    current_window.add(&event_time, new_value);
+                    std::mem::replace(&mut self.current_window, Some(current_window))
+                } else {
+                    None
+                }
             } else {
+                let mut current_window = TimeWindow::new(window_base, self.window_size_sec);
+                current_window.add(&event_time, value);
+                self.current_window = Some(current_window);
                 None
             }
         } else {
-            let mut current_window = TimeWindow::new(window_base, self.window_size_sec);
-            current_window.add(&event_time, value);
-            self.current_window = Some(current_window);
             None
         }
     }
@@ -211,12 +218,12 @@ mod test {
     impl Value for TestValue {
         type Key = KEY;
 
-        fn key(&self) -> &Self::Key {
-            &self.vehicle
+        fn key(&self) -> Option<&Self::Key> {
+            Some(&self.vehicle)
         }
 
-        fn time(&self) -> FluvioTime {
-            self.time.into()
+        fn time(&self) -> Option<FluvioTime> {
+            Some(self.time).map(|time| time.into())
         }
     }
 
@@ -257,7 +264,7 @@ mod test {
                 .into(),
         };
 
-        assert!(w.add(&v1.time(), v1).is_none());
+        assert!(w.add(&v1.time().unwrap(), v1).is_none());
 
         let v2 = TestValue {
             speed: 3.2,
@@ -267,7 +274,7 @@ mod test {
                 .into(),
         };
 
-        let out = w.add(&v2.time(), v2.clone());
+        let out = w.add(&v2.time().unwrap(), v2.clone());
         assert!(out.is_some());
         assert_eq!(out.unwrap(), v2);
     }

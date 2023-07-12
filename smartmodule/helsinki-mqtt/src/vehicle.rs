@@ -52,12 +52,12 @@ pub struct VehiclePosition {
 impl Value for VehiclePosition {
     type Key = Key;
 
-    fn key(&self) -> &Self::Key {
-        &self.veh
+    fn key(&self) -> Option<&Self::Key> {
+        Some(&self.veh)
     }
 
-    fn time(&self) -> fluvio_smartmodule_window::time::FluvioTime {
-        self.tst.into()
+    fn time(&self) -> Option<fluvio_smartmodule_window::time::FluvioTime> {
+        Some(self.tst).map( |time| time.into())
     }
 }
 

@@ -10,4 +10,4 @@ unit_test:
 	cargo test -p window-example
 
 run_helsinki: build
-	fluvio consume --smartmodule-path target/wasm32-unknown-unknown/release-lto/window_helsinki.wasm  --start 0 --end 1000  helsinki 
+	fluvio consume --smartmodule-path ../../target/wasm32-unknown-unknown/release-lto/window_helsinki.wasm  --start 0 --end 1000  helsinki 
