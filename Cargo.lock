@@ -5622,6 +5622,7 @@ dependencies = [
 name = "poc-openmeter"
 version = "0.0.0"
 dependencies = [
+ "anyhow",
  "chrono",
  "cloudevents-sdk",
  "fluvio-smartmodule",
@@ -8397,6 +8398,7 @@ dependencies = [
 name = "window-helsinki"
 version = "0.0.0"
 dependencies = [
+ "anyhow",
  "chrono",
  "fluvio-smartmodule",
  "fluvio-smartmodule-window",

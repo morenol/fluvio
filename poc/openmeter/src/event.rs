@@ -1,24 +1,38 @@
 use std::ops::{Deref, DerefMut};
 
-use cloudevents::{Event, AttributesReader};
+use cloudevents::{Event, AttributesReader, Data};
+use serde_json::Value as JsonValue;
+use anyhow::Result;
+
 use fluvio_smartmodule_window::{window::Value, time::FluvioTime};
-
-
 
 pub struct OpenMeterEvent {
     event: Event,
-    key: Option<String>
+    key: String,
 }
 
 impl OpenMeterEvent {
     pub fn new(event: Event, key: String) -> Self {
-        Self { event, key: Some(key)}
+        Self { event, key }
+    }
+
+    pub fn json_data(&self) -> Option<&JsonValue> {
+        match self.event.data() {
+            Some(data) => match data {
+                Data::Json(json) => Some(json),
+                _ => None,
+            },
+            None => None,
+        }
     }
 }
 
 impl From<Event> for OpenMeterEvent {
     fn from(event: Event) -> Self {
-        Self { event, key: None }
+        Self {
+            event,
+            key: "".to_owned(),
+        }
     }
 }
 
@@ -39,9 +53,21 @@ impl DerefMut for OpenMeterEvent {
 impl Value for OpenMeterEvent {
     type Key = String;
 
-    fn key(&self) -> Option<&Self::Key> {
-      //  &self.key
-      None
+    fn key(&self) -> Result<Option<Self::Key>> {
+        // hardcode key for now
+        if self.key == "$.path" {
+            if let Some(json_value) = self.json_data() {
+                if let Some(path) = json_value.get("path") {
+                    return Ok(path.as_str().map(|s| s.to_owned()));
+                } else {
+                    Ok(None)
+                }
+            } else {
+                Ok(None)
+            }
+        } else {
+            Ok(None)
+        }
     }
 
     fn time(&self) -> Option<FluvioTime> {

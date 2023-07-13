@@ -3,6 +3,8 @@ use std::fmt::Debug;
 use std::{collections::HashMap};
 use std::hash::{Hash};
 
+use anyhow::Result;
+
 use crate::time::{FluvioTime, UTC};
 
 /// Fluvio timestmap representing nanoseconds since UNIX epoch
@@ -29,7 +31,7 @@ impl FluvioTimeStamp {
 pub trait Value {
     type Key;
 
-    fn key(&self) -> Option<&Self::Key>;
+    fn key(&self) -> Result<Option<Self::Key>>;
     fn time(&self) -> Option<FluvioTime>;
 }
 
@@ -40,19 +42,17 @@ pub trait WindowStates<V: Value> {
 }
 
 #[cfg_attr(feature = "use_serde", derive(serde::Serialize))]
-pub struct WindowSummary<V,S>
+pub struct WindowSummary<V, S>
 where
     V: Value,
-    S: WindowStates<V>
- {
+    S: WindowStates<V>,
+{
     start: UTC,
     end: UTC,
     values: Vec<S>,
     #[cfg_attr(feature = "use_serde", serde(skip))]
     phantom: std::marker::PhantomData<V>,
 }
-
-
 
 #[derive(Debug)]
 pub struct TimeWindow<V, S>
@@ -85,37 +85,35 @@ where
 
     /// try to add value to window
     /// if value can't fit into window, return back
-    pub fn add(&mut self, time: &FluvioTime, value: V) -> Option<V> {
+    pub fn add(&mut self, time: &FluvioTime, key: V::Key, value: V) -> Option<V> {
         if time.timestamp_micros() > self.start.timestamp_micros() + self.duration_in_micros {
             return Some(value);
         }
 
-        if let Some(key)  = value.key() {
+        if let Some(state) = self.state.get_mut(&key) {
+            state.add(key.to_owned(), value);
+        } else {
+            self.state.insert(key.clone(), S::new_with_key(key.clone()));
             if let Some(state) = self.state.get_mut(&key) {
                 state.add(key.to_owned(), value);
-            } else {
-                self.state.insert(key.clone(), S::new_with_key(key.clone()));
-                if let Some(state) = self.state.get_mut(&key) {
-                    state.add(key.to_owned(), value);
-                }
             }
-            None
-        } else {
-            None
         }
+        None
     }
 
     pub fn get_state(&self, key: &V::Key) -> Option<&S> {
         self.state.get(key)
     }
 
-    pub fn summary(self) -> WindowSummary<V,S> {
+    pub fn summary(self) -> WindowSummary<V, S> {
         WindowSummary {
             start: <FluvioTime as Into<Option<UTC>>>::into(self.start).unwrap(),
-            end: <FluvioTime as Into<Option<UTC>>>::into(self.start.add_micro_seconds(self.duration_in_micros)).unwrap(),
+            end: <FluvioTime as Into<Option<UTC>>>::into(
+                self.start.add_micro_seconds(self.duration_in_micros),
+            )
+            .unwrap(),
             values: self.state.into_values().collect(),
             phantom: std::marker::PhantomData,
-
         }
     }
 }
@@ -151,29 +149,36 @@ where
     /// add new value based on time
     /// if time is not found, it will be created
     /// if current window is expired, previous will be returned
-    pub fn add(&mut self, value: V) -> Option<TimeWindow<V, S>> {
-
+    pub fn add(&mut self, value: V) -> Result<Option<TimeWindow<V, S>>> {
         if let Some(event_time) = value.time() {
-
             let window_base = event_time.align_seconds(self.window_size_sec as u32);
 
+            let key = match value.key()? {
+                Some(key) => key,
+                None => return Ok(None),
+            };
+
             if let Some(current_window) = &mut self.current_window {
-                if let Some(new_value) = current_window.add(&event_time, value) {
+                // current window exists
+                if let Some(new_value) = current_window.add(&event_time, key.clone(), value) {
                     // current window is full, we need to create new window
                     let mut current_window = TimeWindow::new(window_base, self.window_size_sec);
-                    current_window.add(&event_time, new_value);
-                    std::mem::replace(&mut self.current_window, Some(current_window))
+                    current_window.add(&event_time, key, new_value);
+                    Ok(std::mem::replace(
+                        &mut self.current_window,
+                        Some(current_window),
+                    ))
                 } else {
-                    None
+                    Ok(None)
                 }
             } else {
                 let mut current_window = TimeWindow::new(window_base, self.window_size_sec);
-                current_window.add(&event_time, value);
+                current_window.add(&event_time, key, value);
                 self.current_window = Some(current_window);
-                None
+                Ok(None)
             }
         } else {
-            None
+            Ok(None)
         }
     }
 }
@@ -195,6 +200,7 @@ mod stats_lock_free {}
 #[cfg(test)]
 mod test {
     use chrono::{DateTime, Utc, FixedOffset};
+    use anyhow::Result;
 
     use crate::mean::RollingMean;
     use crate::time::FluvioTime;
@@ -218,8 +224,8 @@ mod test {
     impl Value for TestValue {
         type Key = KEY;
 
-        fn key(&self) -> Option<&Self::Key> {
-            Some(&self.vehicle)
+        fn key(&self) -> Result<Option<Self::Key>> {
+            Ok(Some(self.vehicle))
         }
 
         fn time(&self) -> Option<FluvioTime> {
@@ -264,7 +270,7 @@ mod test {
                 .into(),
         };
 
-        assert!(w.add(&v1.time().unwrap(), v1).is_none());
+        assert!(w.add(&v1.time().unwrap(), VEH1, v1).is_none());
 
         let v2 = TestValue {
             speed: 3.2,
@@ -274,7 +280,7 @@ mod test {
                 .into(),
         };
 
-        let out = w.add(&v2.time().unwrap(), v2.clone());
+        let out = w.add(&v2.time().unwrap(), VEH1, v2.clone());
         assert!(out.is_some());
         assert_eq!(out.unwrap(), v2);
     }
@@ -292,7 +298,7 @@ mod test {
                 .into(),
         };
 
-        assert!(window.add(v1).is_none());
+        assert!(window.add(v1).expect("add").is_none());
         assert!(window.current_window.is_some());
         let current_window = window.current_window.as_ref().unwrap();
         assert_eq!(
@@ -311,7 +317,7 @@ mod test {
                 .into(),
         };
 
-        assert!(window.add(v2).is_none());
+        assert!(window.add(v2).expect("result").is_none());
 
         // try to add out of window
 
@@ -323,6 +329,6 @@ mod test {
                 .into(),
         };
 
-        assert!(window.add(v3).is_some());
+        assert!(window.add(v3).expect("result").is_some());
     }
 }
