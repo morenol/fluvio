@@ -3,7 +3,7 @@ use chrono::{DateTime, Utc};
 use anyhow::Result;
 
 use fluvio_smartmodule_window::{
-    window::{TumblingWindow, Value, WindowStates},
+    window::{TumblingWindow, Value, WindowStates, NoKeySelector},
     mean::RollingMean,
 };
 
@@ -52,9 +52,10 @@ pub struct VehiclePosition {
 }
 
 impl Value for VehiclePosition {
-    type Key = Key;
+    type KeyValue = Key;
+    type KeySelector = NoKeySelector;
 
-    fn key(&self) -> Result<Option<Self::Key>> {
+    fn key(&self, _selector: &NoKeySelector) -> Result<Option<Self::KeyValue>> {
         Ok(Some(self.veh))
     }
 

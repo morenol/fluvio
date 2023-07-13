@@ -28,17 +28,22 @@ impl FluvioTimeStamp {
     }
 }
 
-pub trait Value {
-    type Key;
+pub trait KeySelector {}
 
-    fn key(&self) -> Result<Option<Self::Key>>;
+impl KeySelector for String {}
+
+pub trait Value {
+    type KeyValue;
+    type KeySelector: KeySelector;
+
+    fn key(&self, selector: &Self::KeySelector) -> Result<Option<Self::KeyValue>>;
     fn time(&self) -> Option<FluvioTime>;
 }
 
 pub trait WindowStates<V: Value> {
-    fn new_with_key(key: V::Key) -> Self;
+    fn new_with_key(key: V::KeyValue) -> Self;
 
-    fn add(&mut self, key: V::Key, value: V);
+    fn add(&mut self, key: V::KeyValue, value: V);
 }
 
 #[cfg_attr(feature = "use_serde", derive(serde::Serialize))]
@@ -62,14 +67,14 @@ where
 {
     start: FluvioTime,
     duration_in_micros: i64,
-    state: HashMap<V::Key, S>,
+    state: HashMap<V::KeyValue, S>,
 }
 
 impl<V, S> TimeWindow<V, S>
 where
     V: Value,
     S: WindowStates<V>,
-    V::Key: PartialEq + Eq + Hash + Clone,
+    V::KeyValue: PartialEq + Eq + Hash + Clone,
 {
     pub fn new(start: FluvioTime, duration_in_secs: u16) -> Self {
         Self {
@@ -85,7 +90,7 @@ where
 
     /// try to add value to window
     /// if value can't fit into window, return back
-    pub fn add(&mut self, time: &FluvioTime, key: V::Key, value: V) -> Option<V> {
+    pub fn add(&mut self, time: &FluvioTime, key: V::KeyValue, value: V) -> Option<V> {
         if time.timestamp_micros() > self.start.timestamp_micros() + self.duration_in_micros {
             return Some(value);
         }
@@ -101,7 +106,7 @@ where
         None
     }
 
-    pub fn get_state(&self, key: &V::Key) -> Option<&S> {
+    pub fn get_state(&self, key: &V::KeyValue) -> Option<&S> {
         self.state.get(key)
     }
 
@@ -123,26 +128,28 @@ where
 pub struct TumblingWindow<V, S>
 where
     V: Value + Debug,
-    V::Key: Debug,
+    V::KeyValue: Debug,
     S: WindowStates<V>,
 {
     window_size_sec: u16, // window size in seconds
     current_window: Option<TimeWindow<V, S>>,
     _future_windows: Vec<TimeWindow<V, S>>,
+    key_selector: V::KeySelector,
 }
 
 impl<V, S> TumblingWindow<V, S>
 where
     V: Value + Debug,
-    V::Key: Debug,
+    V::KeyValue: Debug,
     S: WindowStates<V>,
-    V::Key: PartialEq + Eq + Hash + Clone,
+    V::KeyValue: PartialEq + Eq + Hash + Clone,
 {
-    pub fn new(window_size_sec: u16) -> Self {
+    pub fn new(window_size_sec: u16, key_selector: V::KeySelector) -> Self {
         Self {
             window_size_sec,
             current_window: None,
             _future_windows: vec![],
+            key_selector,
         }
     }
 
@@ -153,7 +160,7 @@ where
         if let Some(event_time) = value.time() {
             let window_base = event_time.align_seconds(self.window_size_sec as u32);
 
-            let key = match value.key()? {
+            let key = match value.key(&self.key_selector)? {
                 Some(key) => key,
                 None => return Ok(None),
             };
@@ -183,6 +190,11 @@ where
     }
 }
 
+#[derive(Debug, Default)]
+pub struct NoKeySelector();
+
+impl KeySelector for NoKeySelector {}
+
 /// watermark
 #[derive(Debug, Default)]
 pub struct WaterMark {}
@@ -206,7 +218,7 @@ mod test {
     use crate::time::FluvioTime;
     use crate::window::MICRO_PER_SEC;
 
-    use super::{TumblingWindow, TimeWindow};
+    use super::{TumblingWindow, TimeWindow, NoKeySelector};
     use super::{Value, WindowStates};
 
     type KEY = u16;
@@ -222,9 +234,10 @@ mod test {
     }
 
     impl Value for TestValue {
-        type Key = KEY;
+        type KeyValue = KEY;
+        type KeySelector = NoKeySelector;
 
-        fn key(&self) -> Result<Option<Self::Key>> {
+        fn key(&self, selector: &NoKeySelector) -> Result<Option<Self::KeyValue>> {
             Ok(Some(self.vehicle))
         }
 
@@ -287,7 +300,7 @@ mod test {
 
     #[test]
     fn test_add_to_states() {
-        let mut window = DefaulTumblingWindow::new(10);
+        let mut window = DefaulTumblingWindow::new(10, NoKeySelector::default());
         assert!(window.current_window.is_none());
 
         let v1 = TestValue {

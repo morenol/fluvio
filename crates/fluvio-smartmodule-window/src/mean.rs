@@ -180,6 +180,29 @@ impl RollingMean {
     }
 }
 
+#[derive(Debug, Default)]
+#[cfg_attr(feature = "use_serde", derive(serde::Serialize))]
+pub struct RollingSum<A> {
+    #[cfg_attr(feature = "use_serde", serde(skip))]
+    count: u32,
+    sum: A,
+}
+
+impl<A> RollingSum<A>
+where
+    A: Default + Copy + std::ops::Add<Output = A> + std::ops::AddAssign,
+{
+    /// add to sample
+    pub fn add(&mut self, value: A) {
+        self.sum = self.sum + value;
+        self.count = self.count + 1;
+    }
+
+    pub fn sum(&self) -> A {
+        self.sum
+    }
+}
+
 #[cfg(test)]
 mod mean_test {
 
@@ -192,5 +215,14 @@ mod mean_test {
         assert_eq!(rm.mean(), 3.2);
         rm.add(4.2);
         assert_eq!(rm.mean(), 3.7);
+    }
+
+    #[test]
+    fn rolling_sum() {
+        let mut rm = RollingSum::default();
+        rm.add(4);
+        assert_eq!(rm.sum(), 4);
+        rm.add(6);
+        assert_eq!(rm.sum(), 10);
     }
 }

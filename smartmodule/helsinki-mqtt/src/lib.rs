@@ -9,12 +9,16 @@ use fluvio_smartmodule::{
     RecordData,
 };
 
+use fluvio_smartmodule_window::window::NoKeySelector;
 use vehicle::{MQTTEvent, DefaultWindowState, VehicleStatistics};
 
 #[smartmodule(init)]
 fn init(_params: SmartModuleExtraParams) -> Result<()> {
     STATE
-        .set(Mutex::new(DefaultWindowState::new(60)))
+        .set(Mutex::new(DefaultWindowState::new(
+            60,
+            NoKeySelector::default(),
+        )))
         .map_err(|err| eyre!("state init: {:#?}", err))
 }
 

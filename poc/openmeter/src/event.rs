@@ -1,38 +1,51 @@
 use std::ops::{Deref, DerefMut};
 
 use cloudevents::{Event, AttributesReader, Data};
+use serde::Serialize;
 use serde_json::Value as JsonValue;
 use anyhow::Result;
 
-use fluvio_smartmodule_window::{window::Value, time::FluvioTime};
+use fluvio_smartmodule_window::{
+    window::{Value, WindowStates, TumblingWindow},
+    time::FluvioTime,
+    mean::RollingSum,
+};
 
+pub type DefaultWindowState = TumblingWindow<OpenMeterEvent, MeterStatistics>;
+
+#[derive(Debug)]
 pub struct OpenMeterEvent {
     event: Event,
-    key: String,
 }
 
 impl OpenMeterEvent {
-    pub fn new(event: Event, key: String) -> Self {
-        Self { event, key }
+    pub fn new(event: Event) -> Self {
+        Self { event }
     }
 
     pub fn json_data(&self) -> Option<&JsonValue> {
         match self.event.data() {
-            Some(data) => match data {
+            Some(ref data) => match data {
                 Data::Json(json) => Some(json),
                 _ => None,
             },
             None => None,
         }
     }
+
+    /// get data value from json
+    pub fn data_value(&self, path: &str) -> Option<&JsonValue> {
+        if let Some(json_value) = self.json_data() {
+            json_value.get(path)
+        } else {
+            None
+        }
+    }
 }
 
 impl From<Event> for OpenMeterEvent {
     fn from(event: Event) -> Self {
-        Self {
-            event,
-            key: "".to_owned(),
-        }
+        Self { event }
     }
 }
 
@@ -51,11 +64,12 @@ impl DerefMut for OpenMeterEvent {
 }
 
 impl Value for OpenMeterEvent {
-    type Key = String;
+    type KeySelector = String;
+    type KeyValue = String;
 
-    fn key(&self) -> Result<Option<Self::Key>> {
+    fn key(&self, selector: &String) -> Result<Option<Self::KeyValue>> {
         // hardcode key for now
-        if self.key == "$.path" {
+        if selector == "$.path" {
             if let Some(json_value) = self.json_data() {
                 if let Some(path) = json_value.get("path") {
                     return Ok(path.as_str().map(|s| s.to_owned()));
@@ -75,12 +89,40 @@ impl Value for OpenMeterEvent {
     }
 }
 
+type MeterSum = RollingSum<i64>;
+
+#[derive(Debug, Serialize, Default)]
+pub struct MeterStatistics {
+    pub subject: String,
+    pub property: String,
+    pub sum: MeterSum,
+}
+
+impl WindowStates<OpenMeterEvent> for MeterStatistics {
+    fn add(&mut self, _key: String, value: OpenMeterEvent) {
+        self.sum.add(
+            value
+                .data_value(&self.property)
+                .map(|v| v.as_i64())
+                .flatten()
+                .unwrap_or_default(),
+        );
+    }
+
+    fn new_with_key(key: <OpenMeterEvent as Value>::KeyValue) -> Self {
+        todo!()
+    }
+}
+
 #[cfg(test)]
 mod test {
     use std::fs;
 
     use chrono::{DateTime, FixedOffset, Utc};
     use cloudevents::{Event, AttributesReader};
+    use fluvio_smartmodule_window::window::Value;
+
+    use crate::event::OpenMeterEvent;
 
     #[test]
     fn json_parse() {
@@ -93,5 +135,9 @@ mod test {
                 .expect("datetime parser error")
                 .into();
         assert_eq!(event.time().unwrap(), &test_time);
+
+        let m = OpenMeterEvent::new(event);
+        assert!(m.json_data().is_some());
+        assert_eq!(m.key(&"$.path".to_owned()).expect("key").unwrap(), "/hello");
     }
 }
