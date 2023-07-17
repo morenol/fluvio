@@ -1,6 +1,7 @@
 PROJECT_NAME := window-helsinki
 BINARY_NAME := window_helsinki
 PROFILE := release-lto
+TOPIC_NAME := helsinki
 
 WASM_FILE := ../../target/wasm32-unknown-unknown/$(PROFILE)/$(BINARY_NAME).wasm
 
@@ -17,4 +18,4 @@ unit_test:
 
 
 run: build
-	fluvio consume --smartmodule-path $(WASM_FILE)  --start 0 --end 1000  helsinki 
+	fluvio consume --smartmodule-path $(WASM_FILE)  --start 0 --end 1000  $(TOPIC_NAME) 
