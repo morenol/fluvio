@@ -21,13 +21,15 @@ fn init(_params: SmartModuleExtraParams) -> Result<()> {
 
 static STATE: OnceLock<Mutex<DefaultWindowState>> = OnceLock::new();
 
-/*
 #[smartmodule(filter_map)]
 pub fn filter_map(record: &Record) -> Result<Option<(Option<RecordData>, RecordData)>> {
     let cloud_event: Event = serde_json::from_slice(record.value.as_ref())?;
 
     let mut stats = STATE.get().unwrap().lock().unwrap();
-    if let Some(window_completed) = stats.add(cloud_event) {
+    if let Some(window_completed) = stats
+        .add(cloud_event.into())
+        .map_err(|err| eyre!("add: {:#?}", err))?
+    {
         let summary = window_completed.summary();
 
         Ok(Some((
@@ -35,8 +37,6 @@ pub fn filter_map(record: &Record) -> Result<Option<(Option<RecordData>, RecordD
             RecordData::from(serde_json::to_string(&summary)?),
         )))
     } else {
-
         Ok(None)
     }
 }
-*/
