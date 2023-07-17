@@ -1,0 +1,12 @@
+{
+    "specversion" : "1.0",
+    "type" : "me.escoffier.coffee.Order",
+    "id" : "O234-345-890",
+    "time" : "2023-07-11T09:05:00.003Z",
+    "source" : "https://reactive-coffee-shop.io/1234/order",
+    "subject" : "order",
+    "data" : {
+        "name" : "clement",
+        "order" : "espresso"
+    }
+}

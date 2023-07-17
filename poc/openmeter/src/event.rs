@@ -124,10 +124,14 @@ mod test {
 
     use crate::event::OpenMeterEvent;
 
+    fn read_event(path: &str) -> Event {
+        let bytes = fs::read(path).expect("read file");
+        serde_json::from_slice(&bytes).expect("parse json")
+    }
+
     #[test]
     fn json_parse() {
-        let bytes = fs::read("test/event.json").expect("read file");
-        let event: Event = serde_json::from_slice(&bytes).expect("parse json");
+        let event: Event = read_event("test/event.json");
         assert_eq!(event.ty(), "api-calls");
         assert_eq!(event.subject(), Some("customer-1"));
         let test_time: DateTime<Utc> =
@@ -139,5 +143,18 @@ mod test {
         let m = OpenMeterEvent::new(event);
         assert!(m.json_data().is_some());
         assert_eq!(m.key(&"$.path".to_owned()).expect("key").unwrap(), "/hello");
+    }
+
+
+    #[test]
+    fn test_add() {
+
+        let event: Event = read_event("test/test1.json");
+       // let bytes = fs::read("test/event.json").expect("read file");
+       // let event: Event = serde_json::from_slice(&bytes).expect("parse json");
+       // let mut meter = MeterStatistics::default();
+       //' meter.add("".to_owned(), OpenMeterEvent::new(event));
+       // assert_eq!(meter.sum.sum(), 1);
+
     }
 }
