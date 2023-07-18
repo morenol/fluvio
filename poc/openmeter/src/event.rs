@@ -186,7 +186,7 @@ mod test {
 
         assert_eq!(stat.sum.sum(), 255);
 
-        // let event3: OpenMeterEvent = read_event("test/test3.json").into();
-        // assert!(window.add(event3).expect("add").is_some());
+        let event3: OpenMeterEvent = read_event("test/test3.json").into();
+        assert!(window.add(event3).expect("add").is_some());
     }
 }

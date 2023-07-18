@@ -3,10 +3,11 @@
     "type" : "me.escoffier.coffee.Order",
     "id" : "O234-345-892",
     "time" : "2023-07-11T11:00:12.000Z",
-    "source" : "https://reactive-coffee-shop.io/1234/order",
+    "source" : "https://reactive-coffee-shop.io/1235/order",
     "subject" : "order",
     "data" : {
         "name" : "john",
-        "order" : "ice coffee"
+        "order" : "americano",
+        "duration_sec" : 100
     }
 }
