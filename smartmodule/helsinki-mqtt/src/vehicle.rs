@@ -64,8 +64,8 @@ impl Value for VehiclePosition {
         Some(self.tst).map(|time| time.into())
     }
 
-    fn value(&self, selector: &Self::Selector) -> Result<Option<Self::Value>> {
-        todo!()
+    fn value(&self, _selector: &Self::Selector) -> Result<Option<Self::Value>> {
+        Ok(self.spd.map(|v| v as f64))
     }
 }
 

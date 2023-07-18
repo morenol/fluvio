@@ -106,9 +106,7 @@ pub struct MeterStatistics {
 
 impl WindowStates<OpenMeterEvent> for MeterStatistics {
     fn add(&mut self, _key: String, value: i64) {
-        self.sum.add(
-           value
-        );
+        self.sum.add(value);
     }
 
     fn new_with_key(key: <OpenMeterEvent as Value>::KeyValue) -> Self {
@@ -174,7 +172,6 @@ mod test {
             .get_state(&"espresso".to_owned())
             .expect("espresso");
         assert_eq!(stat.sum.sum(), 200);
-
 
         let event2: OpenMeterEvent = read_event("test/test2.json").into();
         assert!(window.add(event2).expect("add").is_none());

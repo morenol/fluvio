@@ -321,7 +321,7 @@ mod test {
         }
 
         fn value(&self, _selector: &Self::Selector) -> Result<Option<Self::Value>> {
-            todo!()
+            Ok(Some(self.speed))
         }
     }
 
