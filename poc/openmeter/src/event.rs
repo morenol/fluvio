@@ -69,23 +69,28 @@ impl Value for OpenMeterEvent {
     type Value = u64;
 
     fn key(&self, selector: &String) -> Result<Option<Self::KeyValue>> {
-        if let Some(json_value) = self.json_data() {
-            if let Some(path) = json_value.get(selector) {
-                return Ok(path.as_str().map(|s| s.to_owned()));
-            } else {
-                Ok(None)
-            }
-        } else {
-            Ok(None)
-        }
+        Ok(self
+            .json_data()
+            .and_then(|v| v.get(selector))
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_owned()))
     }
 
     fn time(&self) -> Option<FluvioTime> {
         self.event.time().map(|time| time.into())
     }
 
+    /// get data value from event
+    /// automatically convert string to u64
     fn value(&self, selector: &Self::Selector) -> Result<Option<Self::Value>> {
-        todo!()
+        match self.json_data().and_then(|v| v.get(selector)) {
+            Some(v) => match v {
+                JsonValue::String(str) => Ok(Some(str.parse()?)),
+                JsonValue::Number(num) => Ok(Some(num.as_u64().unwrap_or_default())),
+                _ => Ok(None),
+            },
+            None => Ok(None),
+        }
     }
 }
 
@@ -146,6 +151,7 @@ mod test {
         assert!(m.json_data().is_some());
         assert_eq!(m.key(&"path".to_owned()).expect("key").unwrap(), "/hello");
         assert_eq!(m.time().expect("time"), test_time.into());
+        assert_eq!(m.value(&"duration_ms".to_owned()).expect("value"), Some(1));
     }
 
     #[test]
