@@ -54,7 +54,7 @@ pub struct VehiclePosition {
 impl Value for VehiclePosition {
     type KeyValue = Key;
     type Selector = NoKeySelector;
-    type Value = u16;
+    type Value = f64;
 
     fn key(&self, _selector: &NoKeySelector) -> Result<Option<Self::KeyValue>> {
         Ok(Some(self.veh))
@@ -85,8 +85,8 @@ impl Default for VehicleStatistics {
 }
 
 impl WindowStates<VehiclePosition> for VehicleStatistics {
-    fn add(&mut self, _key: Key, value: VehiclePosition) {
-        self.avg_speed.add(value.spd.unwrap_or_default() as f64);
+    fn add(&mut self, _key: Key, value: f64) {
+        self.avg_speed.add(value);
     }
 
     fn new_with_key(key: Key) -> Self {

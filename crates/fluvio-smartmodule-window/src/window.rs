@@ -49,7 +49,7 @@ pub trait Value {
 pub trait WindowStates<V: Value> {
     fn new_with_key(key: V::KeyValue) -> Self;
 
-    fn add(&mut self, key: V::KeyValue, value: V);
+    fn add(&mut self, key: V::KeyValue, value: V::Value);
 }
 
 #[cfg_attr(feature = "use_serde", derive(serde::Serialize))]
@@ -114,7 +114,12 @@ where
 
     /// try to add value to window
     /// if value can't fit into window, return back
-    pub fn add(&mut self, time: &FluvioTime, key: V::KeyValue, value: V) -> Option<V> {
+    pub fn add(
+        &mut self,
+        time: &FluvioTime,
+        key: V::KeyValue,
+        value: V::Value,
+    ) -> Option<V::Value> {
         if time.timestamp_micros() > self.start.timestamp_micros() + self.duration_in_micros {
             return Some(value);
         }
@@ -224,24 +229,34 @@ where
             };
 
             if let Some(current_window) = &mut self.current_window {
-                // current window exists
-                if let Some(new_value) = current_window.add(&event_time, key.clone(), value) {
-                    // current window is full, we need to create new window
-                    let mut current_window =
-                        TimeWindow::new(window_base, self.config.window_size_sec);
-                    current_window.add(&event_time, key, new_value);
-                    Ok(std::mem::replace(
-                        &mut self.current_window,
-                        Some(current_window),
-                    ))
+                if let Some(value_value) = value.value(&self.config.value_selector)? {
+                    // current window exists
+                    if let Some(new_value) =
+                        current_window.add(&event_time, key.clone(), value_value)
+                    {
+                        // current window is full, we need to create new window
+                        let mut current_window =
+                            TimeWindow::new(window_base, self.config.window_size_sec);
+                        current_window.add(&event_time, key, new_value);
+                        Ok(std::mem::replace(
+                            &mut self.current_window,
+                            Some(current_window),
+                        ))
+                    } else {
+                        Ok(None)
+                    }
                 } else {
                     Ok(None)
                 }
             } else {
                 let mut current_window = TimeWindow::new(window_base, self.config.window_size_sec);
-                current_window.add(&event_time, key, value);
-                self.current_window = Some(current_window);
-                Ok(None)
+                if let Some(value_value) = value.value(&self.config.value_selector)? {
+                    current_window.add(&event_time, key, value_value);
+                    self.current_window = Some(current_window);
+                    Ok(None)
+                } else {
+                    Ok(None)
+                }
             }
         } else {
             Ok(None)
@@ -324,8 +339,8 @@ mod test {
             }
         }
 
-        fn add(&mut self, _key: KEY, value: TestValue) {
-            self.speed.add(value.speed);
+        fn add(&mut self, _key: KEY, value: f64) {
+            self.speed.add(value);
         }
     }
 
@@ -347,7 +362,7 @@ mod test {
                 .into(),
         };
 
-        assert!(w.add(&v1.time().unwrap(), VEH1, v1).is_none());
+        assert!(w.add(&v1.time().unwrap(), VEH1, v1.speed).is_none());
 
         let v2 = TestValue {
             speed: 3.2,
@@ -357,9 +372,9 @@ mod test {
                 .into(),
         };
 
-        let out = w.add(&v2.time().unwrap(), VEH1, v2.clone());
+        let out = w.add(&v2.time().unwrap(), VEH1, v2.speed);
         assert!(out.is_some());
-        assert_eq!(out.unwrap(), v2);
+        assert_eq!(out.unwrap(), v2.speed);
     }
 
     #[test]

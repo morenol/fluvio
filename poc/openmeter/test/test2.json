@@ -7,6 +7,7 @@
     "subject" : "order",
     "data" : {
         "name" : "mike",
-        "order" : "americano"
+        "order" : "americano",
+        "duration_sec" : 55
     }
 }

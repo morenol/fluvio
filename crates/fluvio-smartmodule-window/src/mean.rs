@@ -135,8 +135,6 @@ mod test {
     #[cfg(feature = "use_serde")]
     mod test_serde {
 
-        use serde::{Serialize, Deserialize};
-
         use super::*;
 
         #[test]

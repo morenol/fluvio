@@ -66,7 +66,7 @@ impl DerefMut for OpenMeterEvent {
 impl Value for OpenMeterEvent {
     type Selector = String;
     type KeyValue = String;
-    type Value = u64;
+    type Value = i64;
 
     fn key(&self, selector: &String) -> Result<Option<Self::KeyValue>> {
         Ok(self
@@ -86,7 +86,7 @@ impl Value for OpenMeterEvent {
         match self.json_data().and_then(|v| v.get(selector)) {
             Some(v) => match v {
                 JsonValue::String(str) => Ok(Some(str.parse()?)),
-                JsonValue::Number(num) => Ok(Some(num.as_u64().unwrap_or_default())),
+                JsonValue::Number(num) => Ok(Some(num.as_i64().unwrap_or_default())),
                 _ => Ok(None),
             },
             None => Ok(None),
@@ -100,22 +100,22 @@ type MeterSum = RollingSum<i64>;
 pub struct MeterStatistics {
     pub subject: String,
     pub property: String,
+    pub key: String,
     pub sum: MeterSum,
 }
 
 impl WindowStates<OpenMeterEvent> for MeterStatistics {
-    fn add(&mut self, _key: String, value: OpenMeterEvent) {
+    fn add(&mut self, _key: String, value: i64) {
         self.sum.add(
-            value
-                .data_value(&self.property)
-                .map(|v| v.as_i64())
-                .flatten()
-                .unwrap_or_default(),
+           value
         );
     }
 
     fn new_with_key(key: <OpenMeterEvent as Value>::KeyValue) -> Self {
-        todo!()
+        Self {
+            key,
+            ..Default::default()
+        }
     }
 }
 
@@ -169,6 +169,13 @@ mod test {
         let event1: OpenMeterEvent = read_event("test/test1.json").into();
         assert!(window.add(event1).expect("add").is_none());
 
+        let current_window = window.current_window().expect("current_window");
+        let stat = current_window
+            .get_state(&"espresso".to_owned())
+            .expect("espresso");
+        assert_eq!(stat.sum.sum(), 200);
+
+
         let event2: OpenMeterEvent = read_event("test/test2.json").into();
         assert!(window.add(event2).expect("add").is_none());
 
@@ -177,7 +184,7 @@ mod test {
             .get_state(&"espresso".to_owned())
             .expect("espresso");
 
-        assert_eq!(stat.sum.sum(), 2);
+        assert_eq!(stat.sum.sum(), 255);
 
         // let event3: OpenMeterEvent = read_event("test/test3.json").into();
         // assert!(window.add(event3).expect("add").is_some());
