@@ -53,7 +53,8 @@ pub struct VehiclePosition {
 
 impl Value for VehiclePosition {
     type KeyValue = Key;
-    type KeySelector = NoKeySelector;
+    type Selector = NoKeySelector;
+    type Value = u16;
 
     fn key(&self, _selector: &NoKeySelector) -> Result<Option<Self::KeyValue>> {
         Ok(Some(self.veh))
@@ -61,6 +62,10 @@ impl Value for VehiclePosition {
 
     fn time(&self) -> Option<fluvio_smartmodule_window::time::FluvioTime> {
         Some(self.tst).map(|time| time.into())
+    }
+
+    fn value(&self, selector: &Self::Selector) -> Result<Option<Self::Value>> {
+        todo!()
     }
 }
 

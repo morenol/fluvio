@@ -1,13 +1,12 @@
 {
     "specversion" : "1.0",
     "type" : "me.escoffier.coffee.Order",
-    "id" : "O234-345-890",
-    "time" : "2023-07-11T09:05:00.003Z",
+    "id" : "O234-345-891",
+    "time" : "2023-07-11T09:25:11.004Z",
     "source" : "https://reactive-coffee-shop.io/1234/order",
     "subject" : "order",
     "data" : {
-        "name" : "clement",
-        "order" : "espresso",
-        "duration_sec" : 200
+        "name" : "mike",
+        "order" : "americano"
     }
 }

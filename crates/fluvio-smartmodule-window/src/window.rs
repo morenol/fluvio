@@ -28,15 +28,20 @@ impl FluvioTimeStamp {
     }
 }
 
-pub trait KeySelector {}
+pub trait Selector {}
 
-impl KeySelector for String {}
+impl Selector for String {}
 
 pub trait Value {
     type KeyValue;
-    type KeySelector: KeySelector;
+    type Value;
 
-    fn key(&self, selector: &Self::KeySelector) -> Result<Option<Self::KeyValue>>;
+    type Selector: Selector;
+
+    /// get key
+    fn key(&self, selector: &Self::Selector) -> Result<Option<Self::KeyValue>>;
+    fn value(&self, selector: &Self::Selector) -> Result<Option<Self::Value>>;
+
     fn time(&self) -> Option<FluvioTime>;
 }
 
@@ -57,6 +62,24 @@ where
     values: Vec<S>,
     #[cfg_attr(feature = "use_serde", serde(skip))]
     phantom: std::marker::PhantomData<V>,
+}
+
+impl<V, S> WindowSummary<V, S>
+where
+    V: Value,
+    S: WindowStates<V>,
+{
+    pub fn start(&self) -> &UTC {
+        &self.start
+    }
+
+    pub fn end(&self) -> &UTC {
+        &self.end
+    }
+
+    pub fn values(&self) -> &Vec<S> {
+        &self.values
+    }
 }
 
 #[derive(Debug)]
@@ -134,7 +157,7 @@ where
     window_size_sec: u16, // window size in seconds
     current_window: Option<TimeWindow<V, S>>,
     _future_windows: Vec<TimeWindow<V, S>>,
-    key_selector: V::KeySelector,
+    key_selector: V::Selector,
 }
 
 impl<V, S> TumblingWindow<V, S>
@@ -144,13 +167,17 @@ where
     S: WindowStates<V>,
     V::KeyValue: PartialEq + Eq + Hash + Clone,
 {
-    pub fn new(window_size_sec: u16, key_selector: V::KeySelector) -> Self {
+    pub fn new(window_size_sec: u16, key_selector: V::Selector) -> Self {
         Self {
             window_size_sec,
             current_window: None,
             _future_windows: vec![],
             key_selector,
         }
+    }
+
+    pub fn current_window(&self) -> Option<&TimeWindow<V, S>> {
+        self.current_window.as_ref()
     }
 
     /// add new value based on time
@@ -194,7 +221,7 @@ where
 #[derive(Debug, Default)]
 pub struct NoKeySelector();
 
-impl KeySelector for NoKeySelector {}
+impl Selector for NoKeySelector {}
 
 /// watermark
 #[derive(Debug, Default)]
@@ -236,14 +263,19 @@ mod test {
 
     impl Value for TestValue {
         type KeyValue = KEY;
-        type KeySelector = NoKeySelector;
+        type Selector = NoKeySelector;
+        type Value = f64;
 
-        fn key(&self, selector: &NoKeySelector) -> Result<Option<Self::KeyValue>> {
+        fn key(&self, _selector: &NoKeySelector) -> Result<Option<Self::KeyValue>> {
             Ok(Some(self.vehicle))
         }
 
         fn time(&self) -> Option<FluvioTime> {
             Some(self.time).map(|time| time.into())
+        }
+
+        fn value(&self, _selector: &Self::Selector) -> Result<Option<Self::Value>> {
+            todo!()
         }
     }
 

@@ -64,18 +64,14 @@ impl DerefMut for OpenMeterEvent {
 }
 
 impl Value for OpenMeterEvent {
-    type KeySelector = String;
+    type Selector = String;
     type KeyValue = String;
+    type Value = u64;
 
     fn key(&self, selector: &String) -> Result<Option<Self::KeyValue>> {
-        // hardcode key for now
-        if selector == "$.path" {
-            if let Some(json_value) = self.json_data() {
-                if let Some(path) = json_value.get("path") {
-                    return Ok(path.as_str().map(|s| s.to_owned()));
-                } else {
-                    Ok(None)
-                }
+        if let Some(json_value) = self.json_data() {
+            if let Some(path) = json_value.get(selector) {
+                return Ok(path.as_str().map(|s| s.to_owned()));
             } else {
                 Ok(None)
             }
@@ -86,6 +82,10 @@ impl Value for OpenMeterEvent {
 
     fn time(&self) -> Option<FluvioTime> {
         self.event.time().map(|time| time.into())
+    }
+
+    fn value(&self, selector: &Self::Selector) -> Result<Option<Self::Value>> {
+        todo!()
     }
 }
 
@@ -144,15 +144,28 @@ mod test {
 
         let m = OpenMeterEvent::new(event);
         assert!(m.json_data().is_some());
-        assert_eq!(m.key(&"$.path".to_owned()).expect("key").unwrap(), "/hello");
+        assert_eq!(m.key(&"path".to_owned()).expect("key").unwrap(), "/hello");
+        assert_eq!(m.time().expect("time"), test_time.into());
     }
 
     #[test]
     fn test_add() {
-        let event: OpenMeterEvent = read_event("test/test1.json").into();
-
         let mut window = DefaultTumblingWindow::new(3600, "order".to_owned());
 
-        assert!(window.add(event).expect("add").is_none());
+        let event1: OpenMeterEvent = read_event("test/test1.json").into();
+        assert!(window.add(event1).expect("add").is_none());
+
+        let event2: OpenMeterEvent = read_event("test/test2.json").into();
+        assert!(window.add(event2).expect("add").is_none());
+
+        let current_window = window.current_window().expect("current_window");
+        let stat = current_window
+            .get_state(&"espresso".to_owned())
+            .expect("espresso");
+
+        assert_eq!(stat.sum.sum(), 2);
+
+        // let event3: OpenMeterEvent = read_event("test/test3.json").into();
+        // assert!(window.add(event3).expect("add").is_some());
     }
 }
