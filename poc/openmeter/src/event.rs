@@ -11,7 +11,7 @@ use fluvio_smartmodule_window::{
     mean::RollingSum,
 };
 
-pub type DefaultWindowState = TumblingWindow<OpenMeterEvent, MeterStatistics>;
+pub type DefaultTumblingWindow = TumblingWindow<OpenMeterEvent, MeterStatistics>;
 
 #[derive(Debug)]
 pub struct OpenMeterEvent {
@@ -124,6 +124,8 @@ mod test {
 
     use crate::event::OpenMeterEvent;
 
+    use super::DefaultTumblingWindow;
+
     fn read_event(path: &str) -> Event {
         let bytes = fs::read(path).expect("read file");
         serde_json::from_slice(&bytes).expect("parse json")
@@ -145,16 +147,12 @@ mod test {
         assert_eq!(m.key(&"$.path".to_owned()).expect("key").unwrap(), "/hello");
     }
 
-
     #[test]
     fn test_add() {
+        let event: OpenMeterEvent = read_event("test/test1.json").into();
 
-        let event: Event = read_event("test/test1.json");
-       // let bytes = fs::read("test/event.json").expect("read file");
-       // let event: Event = serde_json::from_slice(&bytes).expect("parse json");
-       // let mut meter = MeterStatistics::default();
-       //' meter.add("".to_owned(), OpenMeterEvent::new(event));
-       // assert_eq!(meter.sum.sum(), 1);
+        let mut window = DefaultTumblingWindow::new(3600, "order".to_owned());
 
+        assert!(window.add(event).expect("add").is_none());
     }
 }

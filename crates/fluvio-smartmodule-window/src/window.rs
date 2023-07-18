@@ -156,6 +156,7 @@ where
     /// add new value based on time
     /// if time is not found, it will be created
     /// if current window is expired, previous will be returned
+    /// otherwise will return None
     pub fn add(&mut self, value: V) -> Result<Option<TimeWindow<V, S>>> {
         if let Some(event_time) = value.time() {
             let window_base = event_time.align_seconds(self.window_size_sec as u32);

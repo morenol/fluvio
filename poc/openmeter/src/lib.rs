@@ -10,16 +10,19 @@ use fluvio_smartmodule::{
     RecordData,
 };
 
-use event::{OpenMeterEvent, DefaultWindowState};
+use event::{OpenMeterEvent, DefaultTumblingWindow};
 
 #[smartmodule(init)]
 fn init(_params: SmartModuleExtraParams) -> Result<()> {
     STATE
-        .set(Mutex::new(DefaultWindowState::new(10, "path".to_owned())))
+        .set(Mutex::new(DefaultTumblingWindow::new(
+            10,
+            "path".to_owned(),
+        )))
         .map_err(|err| eyre!("state init: {:#?}", err))
 }
 
-static STATE: OnceLock<Mutex<DefaultWindowState>> = OnceLock::new();
+static STATE: OnceLock<Mutex<DefaultTumblingWindow>> = OnceLock::new();
 
 #[smartmodule(filter_map)]
 pub fn filter_map(record: &Record) -> Result<Option<(Option<RecordData>, RecordData)>> {
