@@ -148,12 +148,12 @@ where
 }
 
 #[derive(Debug, Builder)]
-#[builder(build_fn(private, name = "build_impl"))]
+#[builder(build_fn(private, name = "build_impl"), pattern = "owned")]
 pub struct WindowConfig<V>
 where
     V: Value + Debug,
     V::KeyValue: Debug,
-    V::Selector: Clone,
+    V::Selector: Clone + Debug,
 {
     #[builder(setter(into), default = "10")]
     window_size_sec: u16, // window size in seconds
@@ -167,15 +167,13 @@ impl<V> WindowConfigBuilder<V>
 where
     V: Value + Debug + Clone,
     V::KeyValue: Debug,
-    V::Selector: Clone,
+    V::Selector: Clone + Debug,
 {
-    pub fn build<S: WindowStates<V>>(&self) -> Result<TumblingWindow<V, S>> {
+    pub fn build<S: WindowStates<V>>(self) -> Result<TumblingWindow<V, S>> {
         let config = self.build_impl()?;
 
         Ok(TumblingWindow {
-            window_size_sec: config.window_size_sec,
-            value_selector: config.value_selector,
-            key_selector: config.key_selector,
+            config,
             _future_windows: vec![],
             current_window: None,
         })
@@ -188,21 +186,19 @@ pub struct TumblingWindow<V, S>
 where
     V: Value + Debug,
     V::KeyValue: Debug,
-    V::Selector: Clone,
+    V::Selector: Clone + Debug,
     S: WindowStates<V>,
 {
-    window_size_sec: u16, // window size in seconds
-    value_selector: V::Selector,
+    config: WindowConfig<V>,
     current_window: Option<TimeWindow<V, S>>,
     _future_windows: Vec<TimeWindow<V, S>>,
-    key_selector: V::Selector,
 }
 
 impl<V, S> TumblingWindow<V, S>
 where
     V: Value + Debug + Clone,
     V::KeyValue: Debug,
-    V::Selector: Clone,
+    V::Selector: Clone + Debug,
     S: WindowStates<V>,
     V::KeyValue: PartialEq + Eq + Hash + Clone,
 {
@@ -220,9 +216,9 @@ where
     /// otherwise will return None
     pub fn add(&mut self, value: V) -> Result<Option<TimeWindow<V, S>>> {
         if let Some(event_time) = value.time() {
-            let window_base = event_time.align_seconds(self.window_size_sec as u32);
+            let window_base = event_time.align_seconds(self.config.window_size_sec as u32);
 
-            let key = match value.key(&self.key_selector)? {
+            let key = match value.key(&self.config.key_selector)? {
                 Some(key) => key,
                 None => return Ok(None),
             };
@@ -231,7 +227,8 @@ where
                 // current window exists
                 if let Some(new_value) = current_window.add(&event_time, key.clone(), value) {
                     // current window is full, we need to create new window
-                    let mut current_window = TimeWindow::new(window_base, self.window_size_sec);
+                    let mut current_window =
+                        TimeWindow::new(window_base, self.config.window_size_sec);
                     current_window.add(&event_time, key, new_value);
                     Ok(std::mem::replace(
                         &mut self.current_window,
@@ -241,7 +238,7 @@ where
                     Ok(None)
                 }
             } else {
-                let mut current_window = TimeWindow::new(window_base, self.window_size_sec);
+                let mut current_window = TimeWindow::new(window_base, self.config.window_size_sec);
                 current_window.add(&event_time, key, value);
                 self.current_window = Some(current_window);
                 Ok(None)

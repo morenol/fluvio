@@ -159,7 +159,8 @@ mod test {
         let mut window: TumblingWindow<OpenMeterEvent, MeterStatistics> =
             DefaultTumblingWindow::builder()
                 .window_size_sec(3600 as u16)
-                //    .key_selector(NoKeySelector::default())
+                .key_selector("order")
+                .value_selector("duration_sec")
                 .build()
                 .expect("tumbling window init");
 
