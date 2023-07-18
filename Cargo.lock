@@ -3004,6 +3004,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "chrono",
+ "derive_builder",
  "fluvio-protocol",
  "serde",
  "serde_json",

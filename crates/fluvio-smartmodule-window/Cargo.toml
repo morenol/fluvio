@@ -22,6 +22,8 @@ tracing = { workspace = true }
 thiserror = { workspace = true }
 chrono = { workspace = true}
 serde = { workspace = true,  features = ["derive"], optional = true }
+derive_builder = { workspace = true }
+
 fluvio-protocol = { workspace = true, features = [ "link"] }
 
 [dev-dependencies]

@@ -14,11 +14,15 @@ use vehicle::{MQTTEvent, DefaultWindowState, VehicleStatistics};
 
 #[smartmodule(init)]
 fn init(_params: SmartModuleExtraParams) -> Result<()> {
+    let window_state = DefaultWindowState::builder()
+        .window_size_sec(60 as u16)
+        .key_selector(NoKeySelector::default())
+        .value_selector(NoKeySelector::default())
+        .build()
+        .map_err(|err| eyre!("tumbling window init: {:#?}", err))?;
+
     STATE
-        .set(Mutex::new(DefaultWindowState::new(
-            60,
-            NoKeySelector::default(),
-        )))
+        .set(Mutex::new(window_state))
         .map_err(|err| eyre!("state init: {:#?}", err))
 }
 

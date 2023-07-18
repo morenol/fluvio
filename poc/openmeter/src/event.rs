@@ -13,7 +13,7 @@ use fluvio_smartmodule_window::{
 
 pub type DefaultTumblingWindow = TumblingWindow<OpenMeterEvent, MeterStatistics>;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct OpenMeterEvent {
     event: Event,
 }
@@ -125,9 +125,9 @@ mod test {
 
     use chrono::{DateTime, FixedOffset, Utc};
     use cloudevents::{Event, AttributesReader};
-    use fluvio_smartmodule_window::window::Value;
+    use fluvio_smartmodule_window::window::{Value, NoKeySelector, TumblingWindow};
 
-    use crate::event::OpenMeterEvent;
+    use crate::event::{OpenMeterEvent, MeterStatistics};
 
     use super::DefaultTumblingWindow;
 
@@ -156,7 +156,14 @@ mod test {
 
     #[test]
     fn test_add() {
-        let mut window = DefaultTumblingWindow::new(3600, "order".to_owned());
+        let mut window: TumblingWindow<OpenMeterEvent, MeterStatistics> =
+            DefaultTumblingWindow::builder()
+                .window_size_sec(3600 as u16)
+                //    .key_selector(NoKeySelector::default())
+                .build()
+                .expect("tumbling window init");
+
+        //  let mut window = DefaultTumblingWindow::new(3600, "order".to_owned());
 
         let event1: OpenMeterEvent = read_event("test/test1.json").into();
         assert!(window.add(event1).expect("add").is_none());

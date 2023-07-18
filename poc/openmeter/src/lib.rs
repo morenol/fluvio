@@ -14,11 +14,14 @@ use event::{OpenMeterEvent, DefaultTumblingWindow};
 
 #[smartmodule(init)]
 fn init(_params: SmartModuleExtraParams) -> Result<()> {
+    let window_state = DefaultTumblingWindow::builder()
+        .window_size_sec(10 as u16)
+        //     .key_selector(NoKeySelector::default())
+        .build()
+        .map_err(|err| eyre!("tumbling window init: {:#?}", err))?;
+
     STATE
-        .set(Mutex::new(DefaultTumblingWindow::new(
-            10,
-            "path".to_owned(),
-        )))
+        .set(Mutex::new(window_state))
         .map_err(|err| eyre!("state init: {:#?}", err))
 }
 

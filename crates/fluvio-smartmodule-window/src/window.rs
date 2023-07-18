@@ -4,6 +4,7 @@ use std::{collections::HashMap};
 use std::hash::{Hash};
 
 use anyhow::Result;
+use derive_builder::Builder;
 
 use crate::time::{FluvioTime, UTC};
 
@@ -146,15 +147,52 @@ where
     }
 }
 
+#[derive(Debug, Builder)]
+#[builder(build_fn(private, name = "build_impl"))]
+pub struct WindowConfig<V>
+where
+    V: Value + Debug,
+    V::KeyValue: Debug,
+    V::Selector: Clone,
+{
+    #[builder(setter(into), default = "10")]
+    window_size_sec: u16, // window size in seconds
+    #[builder(setter(into))]
+    value_selector: V::Selector,
+    #[builder(setter(into))]
+    key_selector: V::Selector,
+}
+
+impl<V> WindowConfigBuilder<V>
+where
+    V: Value + Debug + Clone,
+    V::KeyValue: Debug,
+    V::Selector: Clone,
+{
+    pub fn build<S: WindowStates<V>>(&self) -> Result<TumblingWindow<V, S>> {
+        let config = self.build_impl()?;
+
+        Ok(TumblingWindow {
+            window_size_sec: config.window_size_sec,
+            value_selector: config.value_selector,
+            key_selector: config.key_selector,
+            _future_windows: vec![],
+            current_window: None,
+        })
+    }
+}
+
 /// split state by time
 #[derive(Debug)]
 pub struct TumblingWindow<V, S>
 where
     V: Value + Debug,
     V::KeyValue: Debug,
+    V::Selector: Clone,
     S: WindowStates<V>,
 {
     window_size_sec: u16, // window size in seconds
+    value_selector: V::Selector,
     current_window: Option<TimeWindow<V, S>>,
     _future_windows: Vec<TimeWindow<V, S>>,
     key_selector: V::Selector,
@@ -162,18 +200,14 @@ where
 
 impl<V, S> TumblingWindow<V, S>
 where
-    V: Value + Debug,
+    V: Value + Debug + Clone,
     V::KeyValue: Debug,
+    V::Selector: Clone,
     S: WindowStates<V>,
     V::KeyValue: PartialEq + Eq + Hash + Clone,
 {
-    pub fn new(window_size_sec: u16, key_selector: V::Selector) -> Self {
-        Self {
-            window_size_sec,
-            current_window: None,
-            _future_windows: vec![],
-            key_selector,
-        }
+    pub fn builder() -> WindowConfigBuilder<V> {
+        WindowConfigBuilder::default()
     }
 
     pub fn current_window(&self) -> Option<&TimeWindow<V, S>> {
@@ -218,7 +252,7 @@ where
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct NoKeySelector();
 
 impl Selector for NoKeySelector {}
@@ -333,7 +367,13 @@ mod test {
 
     #[test]
     fn test_add_to_states() {
-        let mut window = DefaulTumblingWindow::new(10, NoKeySelector::default());
+        let mut window: TumblingWindow<TestValue, TestState> = DefaulTumblingWindow::builder()
+            .window_size_sec(10 as u16)
+            .key_selector(NoKeySelector::default())
+            .value_selector(NoKeySelector::default())
+            .build()
+            .expect("config failure");
+
         assert!(window.current_window.is_none());
 
         let v1 = TestValue {
