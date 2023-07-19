@@ -155,7 +155,7 @@ mod test {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 #[cfg_attr(feature = "use_serde", derive(serde::Serialize))]
 pub struct RollingMean {
     #[cfg_attr(feature = "use_serde", serde(skip))]

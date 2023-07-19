@@ -1,7 +1,7 @@
 PROJECT_NAME := window-helsinki
 BINARY_NAME := window_helsinki
 PROFILE := release-lto
-TOPIC_NAME := helsinki
+TOPIC_NAME := veh1
 
 WASM_FILE := ../../target/wasm32-unknown-unknown/$(PROFILE)/$(BINARY_NAME).wasm
 

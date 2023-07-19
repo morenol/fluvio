@@ -69,7 +69,7 @@ impl Value for VehiclePosition {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 pub struct VehicleStatistics {
     pub vehicle: u16,
     pub avg_speed: RollingMean,

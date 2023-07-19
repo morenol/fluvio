@@ -1,21 +1,20 @@
 use fluvio_smartmodule::{smartmodule, Record, RecordData, state::SmartModuleState};
 use fluvio_smartmodule::dataplane::smartmodule::SmartModuleExtraParams;
-use fluvio_smartmodule::dataplane::core::{Encoder, Decoder};
 
-#[derive(Default, Encoder, Decoder)]
+#[derive(Clone)]
 pub struct CounterState {
     count: u32,
 }
 
 impl SmartModuleState for CounterState {
-    fn init(_params: SmartModuleExtraParams) -> Self {
-        Self::default()
+    fn init(_params: SmartModuleExtraParams) -> anyhow::Result<Self> {
+        Self { count: 0 }
     }
 }
 
 #[smartmodule(materialize)]
 pub fn materialize(
-    current: &Record,
+    _current: &Record,
     state: &mut CounterState,
 ) -> fluvio_smartmodule::Result<Option<(Option<RecordData>, RecordData)>> {
     state.count += 1;

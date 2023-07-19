@@ -34,7 +34,7 @@ pub trait Selector {}
 impl Selector for String {}
 
 pub trait Value {
-    type KeyValue;
+    type KeyValue: Clone;
     type Value;
 
     type Selector: Selector;
@@ -83,7 +83,7 @@ where
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TimeWindow<V, S>
 where
     V: Value,
@@ -152,7 +152,7 @@ where
     }
 }
 
-#[derive(Debug, Builder)]
+#[derive(Debug, Builder, Clone)]
 #[builder(build_fn(private, name = "build_impl"), pattern = "owned")]
 pub struct WindowConfig<V>
 where
@@ -186,10 +186,10 @@ where
 }
 
 /// split state by time
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TumblingWindow<V, S>
 where
-    V: Value + Debug,
+    V: Value + Debug + Clone,
     V::KeyValue: Debug,
     V::Selector: Clone + Debug,
     S: WindowStates<V>,
