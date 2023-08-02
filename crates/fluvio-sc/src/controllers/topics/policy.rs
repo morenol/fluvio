@@ -220,7 +220,7 @@ impl<C: MetadataItem> TopicNextState<C> {
             },
 
             // Assign Topic
-            ReplicaSpec::Assigned(ref partition_map) => match topic.status.resolution {
+            ReplicaSpec::Assigned(ref partition_map) | ReplicaSpec::Mirror(ref partition_map) => match topic.status.resolution {
                 TopicResolution::Init | TopicResolution::InvalidConfig => {
                     validate_assigned_topic_parameters(partition_map)
                 }
@@ -243,9 +243,6 @@ impl<C: MetadataItem> TopicNextState<C> {
                     }
                     next_state
                 }
-            },
-            ReplicaSpec::Mirror(_) => {
-                todo!()
             }
         }
     }
