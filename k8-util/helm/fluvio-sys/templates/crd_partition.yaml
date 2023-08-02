@@ -28,6 +28,8 @@ spec:
                   type: array
                   items:
                     type: integer
+                mirror:
+                  type: integer
                 cleanupPolicy:
                   type: object
                   properties:
