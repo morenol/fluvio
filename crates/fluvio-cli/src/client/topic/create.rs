@@ -83,6 +83,7 @@ pub struct CreateTopicOpt {
         value_name = "file.json",
         conflicts_with = "partitions",
         conflicts_with = "replication",
+        conflicts_with = "mirror_assignment",
         group = "config-arg"
     )]
     replica_assignment: Option<PathBuf>,
@@ -94,6 +95,7 @@ pub struct CreateTopicOpt {
         value_name = "file.json",
         conflicts_with = "partitions",
         conflicts_with = "replication",
+        conflicts_with = "replica_assignment",
         group = "config-arg"
     )]
     mirror_assignment: Option<PathBuf>,
@@ -214,11 +216,41 @@ mod load {
     use std::path::Path;
 
     use anyhow::{anyhow, Result};
-    use fluvio::metadata::topic::PartitionMaps;
+    use serde::Deserialize;
 
+    use fluvio::metadata::topic::PartitionMaps;
+    use fluvio_controlplane_metadata::topic::PartitionMap;
+    use fluvio_types::SpuId;
+
+
+    #[derive(Deserialize, Debug)]
+    struct MirrorConfig(Vec<SpuId>);
+
+    impl From<MirrorConfig> for PartitionMaps {
+        fn from(mirror_config: MirrorConfig) -> Self {
+            let mut maps = vec![];
+            for (partition_id, spu_id) in mirror_config.0.into_iter().enumerate() {
+                maps.push(PartitionMap {
+                    id: partition_id as u32,
+                    mirror: Some(spu_id),
+                    ..Default::default()
+                });
+            }
+            maps.into()
+        }
+    }
+
+<<<<<<< HEAD
     pub(crate) trait ReadFromJson: Sized {
         /// Read and decode from json file
         fn read_from_json_file<T: AsRef<Path>>(path: T) -> Result<Self>;
+=======
+    pub(crate) trait PartitionLoad: Sized {
+        fn file_decode<T: AsRef<Path>>(path: T) -> Result<Self, IoError>;
+
+        // read and decode the mirror file into Replica Assignment map
+        fn read_mirror_assignment<T: AsRef<Path>>(path: T) -> Result<Self>;
+>>>>>>> 4f3fb592 (add test for mirror)
     }
 
     impl ReadFromJson for PartitionMaps {
@@ -226,6 +258,15 @@ mod load {
             let file_str: String = read_to_string(path)?;
             serde_json::from_str(&file_str)
                 .map_err(|err| anyhow!("error reading replica assignment: {err}"))
+        }
+
+        
+        fn read_mirror_assignment<T: AsRef<Path>>(path: T) -> Result<Self> {
+            let file_str: String = read_to_string(path)?;
+            let mirro_config: MirrorConfig =
+            serde_json::from_str(&file_str)
+                .map_err(|err| anyhow!("error reading mirror assignment: {err}"))?;
+            Ok(mirro_config.into())
         }
     }
 
@@ -244,6 +285,16 @@ mod load {
             assert_eq!(p_map.maps().len(), 3);
             assert_eq!(p_map.maps()[0].id, 0);
             assert_eq!(p_map.maps()[0].replicas, vec![5001, 5002, 5003]);
+        }
+
+        #[test]
+        fn test_mirror_map_file() {
+            let p_map = PartitionMaps::read_mirror_assignment("test-data/topics/mirror_assignment.json")
+                .expect("v1 not found");
+            assert_eq!(p_map.maps().len(), 2);
+            assert_eq!(p_map.maps()[0].id, 0);
+            assert!(p_map.maps()[0].replicas.is_empty());
+            assert_eq!(p_map.maps()[0].mirror, Some(6001));
         }
     }
 }
