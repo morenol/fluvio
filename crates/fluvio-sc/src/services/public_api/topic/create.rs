@@ -181,6 +181,9 @@ async fn validate_topic_request<C: MetadataItem>(
                     Status::new_ok(name.to_owned())
                 }
             }
+        },
+        ReplicaSpec::Mirror(_) => {
+            todo!()
         }
     }
 }

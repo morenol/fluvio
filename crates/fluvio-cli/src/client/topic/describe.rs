@@ -143,6 +143,9 @@ mod display {
                         Some(partitions.maps.clone()),
                     ));
                     */
+                },
+                ReplicaSpec::Mirror(_partitions) => {
+                    
                 }
             }
 

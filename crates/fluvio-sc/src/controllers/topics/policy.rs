@@ -244,6 +244,9 @@ impl<C: MetadataItem> TopicNextState<C> {
                     next_state
                 }
             },
+            ReplicaSpec::Mirror(_) => {
+                todo!()
+            }
         }
     }
 }

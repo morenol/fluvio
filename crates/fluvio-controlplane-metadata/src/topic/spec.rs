@@ -177,6 +177,9 @@ pub enum ReplicaSpec {
     #[cfg_attr(feature = "use_serde", serde(rename = "computed"))]
     #[fluvio(tag = 1)]
     Computed(TopicReplicaParam),
+    #[cfg_attr(feature = "use_serde", serde(rename = "mirror"))]
+    #[fluvio(tag = 2)]
+    Mirror(PartitionMaps),
 }
 
 impl std::fmt::Display for ReplicaSpec {
@@ -184,6 +187,7 @@ impl std::fmt::Display for ReplicaSpec {
         match self {
             Self::Assigned(partition_map) => write!(f, "assigned::{partition_map}"),
             Self::Computed(param) => write!(f, "computed::({param})"),
+            Self::Mirror(param) => write!(f, "mirror::({param})"),
         }
     }
 }
@@ -211,16 +215,14 @@ impl ReplicaSpec {
     }
 
     pub fn is_computed(&self) -> bool {
-        match self {
-            Self::Computed(_) => true,
-            Self::Assigned(_) => false,
-        }
+        matches!(self, Self::Computed(_))
     }
 
     pub fn partitions(&self) -> PartitionCount {
         match &self {
             Self::Computed(param) => param.partitions,
             Self::Assigned(partition_map) => partition_map.partition_count(),
+            Self::Mirror(partition_map) => partition_map.partition_count(),
         }
     }
 
@@ -228,6 +230,7 @@ impl ReplicaSpec {
         match self {
             Self::Computed(param) => Some(param.replication_factor),
             Self::Assigned(partition_map) => partition_map.replication_factor(),
+            Self::Mirror(partition_map) => partition_map.replication_factor(),
         }
     }
 
@@ -235,6 +238,7 @@ impl ReplicaSpec {
         match self {
             Self::Computed(param) => param.ignore_rack_assignment,
             Self::Assigned(_) => false,
+            Self::Mirror(_) => false
         }
     }
 
@@ -242,6 +246,7 @@ impl ReplicaSpec {
         match self {
             Self::Computed(_) => "computed",
             Self::Assigned(_) => "assigned",
+            Self::Mirror(_) => "mirror",
         }
     }
 
@@ -249,6 +254,7 @@ impl ReplicaSpec {
         match self {
             Self::Computed(param) => param.partitions.to_string(),
             Self::Assigned(_) => "".to_owned(),
+            Self::Mirror(_) => "".to_owned()
         }
     }
 
@@ -256,6 +262,7 @@ impl ReplicaSpec {
         match self {
             Self::Computed(param) => param.replication_factor.to_string(),
             Self::Assigned(_) => "".to_owned(),
+            Self::Mirror(_) => "".to_owned()
         }
     }
 
@@ -269,6 +276,7 @@ impl ReplicaSpec {
                 }
             }
             Self::Assigned(_) => "",
+            Self::Mirror(_) => ""
         }
     }
 
@@ -276,6 +284,7 @@ impl ReplicaSpec {
         match self {
             Self::Computed(_) => None,
             Self::Assigned(partition_map) => Some(partition_map.partition_map_string()),
+            Self::Mirror(partition_map) => Some(partition_map.partition_map_string()),
         }
     }
 
@@ -376,7 +385,7 @@ impl From<Vec<(PartitionId, Vec<SpuId>)>> for PartitionMaps {
     fn from(partition_vec: Vec<(PartitionId, Vec<SpuId>)>) -> Self {
         let maps: Vec<PartitionMap> = partition_vec
             .into_iter()
-            .map(|(id, replicas)| PartitionMap { id, replicas })
+            .map(|(id, replicas)| PartitionMap { id, replicas,mirror: None })
             .collect();
         maps.into()
     }
@@ -548,8 +557,11 @@ impl From<(PartitionCount, ReplicationFactor)> for TopicSpec {
 #[cfg_attr(feature = "use_serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct PartitionMap {
     pub id: PartitionId,
+    pub mirror: Option<SpuId>,
     pub replicas: Vec<SpuId>,
 }
+
+
 
 #[derive(Decoder, Encoder, Debug, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "use_serde", derive(serde::Serialize, serde::Deserialize))]
