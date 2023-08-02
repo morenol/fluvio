@@ -87,6 +87,17 @@ pub struct CreateTopicOpt {
     )]
     replica_assignment: Option<PathBuf>,
 
+    /// Replica assignment file
+    #[arg(
+        short = 'm',
+        long = "mirror-assignment",
+        value_name = "file.json",
+        conflicts_with = "partitions",
+        conflicts_with = "replication",
+        group = "config-arg"
+    )]
+    mirror_assignment: Option<PathBuf>,
+
     /// Validates configuration, does not provision
     #[arg(short = 'd', long)]
     dry_run: bool,
