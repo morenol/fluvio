@@ -1,0 +1,19 @@
+{
+    "apiVersion": "fluvio.infinyon.com/v2",
+    "kind": "Topic",
+    "metadata": {
+        "name": "test3",
+        "namespace": "default"
+    },
+    "spec": {
+        "compressionType": "Any",
+        "replicas": {
+            "mirror": [
+                {
+                    "id": 0,
+                    "mirror": 6001
+                }
+            ]
+        }
+    }
+}

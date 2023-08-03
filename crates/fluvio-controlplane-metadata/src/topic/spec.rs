@@ -179,7 +179,7 @@ pub enum ReplicaSpec {
     Computed(TopicReplicaParam),
     #[cfg_attr(feature = "use_serde", serde(rename = "mirror"))]
     #[fluvio(tag = 2)]
-    Mirror(PartitionMaps),
+    Mirror(MirrorConfig),
 }
 
 impl std::fmt::Display for ReplicaSpec {
@@ -238,7 +238,7 @@ impl ReplicaSpec {
         match self {
             Self::Computed(param) => param.ignore_rack_assignment,
             Self::Assigned(_) => false,
-            Self::Mirror(_) => false
+            Self::Mirror(_) => false,
         }
     }
 
@@ -254,7 +254,7 @@ impl ReplicaSpec {
         match self {
             Self::Computed(param) => param.partitions.to_string(),
             Self::Assigned(_) => "".to_owned(),
-            Self::Mirror(_) => "".to_owned()
+            Self::Mirror(_) => "".to_owned(),
         }
     }
 
@@ -262,7 +262,7 @@ impl ReplicaSpec {
         match self {
             Self::Computed(param) => param.replication_factor.to_string(),
             Self::Assigned(_) => "".to_owned(),
-            Self::Mirror(_) => "".to_owned()
+            Self::Mirror(_) => "".to_owned(),
         }
     }
 
@@ -276,7 +276,7 @@ impl ReplicaSpec {
                 }
             }
             Self::Assigned(_) => "",
-            Self::Mirror(_) => ""
+            Self::Mirror(_) => "",
         }
     }
 
@@ -284,7 +284,7 @@ impl ReplicaSpec {
         match self {
             Self::Computed(_) => None,
             Self::Assigned(partition_map) => Some(partition_map.partition_map_string()),
-            Self::Mirror(partition_map) => Some(partition_map.partition_map_string()),
+            Self::Mirror(mirror) => Some(mirror.as_partition_maps().partition_map_string()),
         }
     }
 
@@ -385,7 +385,11 @@ impl From<Vec<(PartitionId, Vec<SpuId>)>> for PartitionMaps {
     fn from(partition_vec: Vec<(PartitionId, Vec<SpuId>)>) -> Self {
         let maps: Vec<PartitionMap> = partition_vec
             .into_iter()
-            .map(|(id, replicas)| PartitionMap { id, replicas,mirror: None })
+            .map(|(id, replicas)| PartitionMap {
+                id,
+                replicas,
+                mirror: None,
+            })
             .collect();
         maps.into()
     }
@@ -557,12 +561,71 @@ impl From<(PartitionCount, ReplicationFactor)> for TopicSpec {
 #[cfg_attr(feature = "use_serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct PartitionMap {
     pub id: PartitionId,
-    #[cfg_attr(feature = "use_serde", serde(default,skip_serializing_if = "Option::is_none"))]
+    #[cfg_attr(
+        feature = "use_serde",
+        serde(default, skip_serializing_if = "Option::is_none")
+    )]
     pub mirror: Option<SpuId>,
     pub replicas: Vec<SpuId>,
 }
 
+/// Mirror is a list of Edge SPU ids
+#[derive(Decoder, Encoder, Default, Debug, Clone, Eq, PartialEq)]
+#[cfg_attr(feature = "use_serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct MirrorConfig(Vec<SpuId>);
 
+impl std::fmt::Display for MirrorConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(
+            f,
+            "Mirror spus:{}",
+            self.0
+                .iter()
+                .map(|id| id.to_string())
+                .collect::<Vec<String>>()
+                .join(",")
+        )
+    }
+}
+
+impl Into<Vec<SpuId>> for MirrorConfig {
+    fn into(self) -> Vec<SpuId> {
+        self.0
+    }
+}
+
+impl From<Vec<SpuId>> for MirrorConfig {
+    fn from(spu_ids: Vec<SpuId>) -> Self {
+        Self(spu_ids)
+    }
+}
+
+impl MirrorConfig {
+    pub fn partition_count(&self) -> PartitionCount {
+        self.0.len() as PartitionCount
+    }
+
+    pub fn replication_factor(&self) -> Option<ReplicationFactor> {
+        None
+    }
+
+    pub fn as_partition_maps(&self) -> PartitionMaps {
+        let mut maps = vec![];
+        for (partition_id, spu_id) in self.0.iter().enumerate() {
+            maps.push(PartitionMap {
+                id: partition_id as u32,
+                mirror: Some(*spu_id),
+                ..Default::default()
+            });
+        }
+        maps.into()
+    }
+
+    /// Validate partition map for assigned topics
+    pub fn validate(&self) -> anyhow::Result<()> {
+        Ok(())
+    }
+}
 
 #[derive(Decoder, Encoder, Debug, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "use_serde", derive(serde::Serialize, serde::Deserialize))]
@@ -898,5 +961,31 @@ mod test {
         let p2 = PartitionMaps::default();
         let spec2 = ReplicaSpec::new_assigned(p2);
         assert_eq!(spec2.partition_map_str(), Some("".to_string()));
+    }
+}
+
+#[cfg(test)]
+mod mirror_test {
+    use crate::topic::{MirrorConfig, PartitionMap};
+
+    #[test]
+    fn test_as_partition_map() {
+        let mirror: MirrorConfig = vec![6001, 6002].into();
+        assert_eq!(
+            mirror.as_partition_maps(),
+            vec![
+                PartitionMap {
+                    id: 0,
+                    mirror: Some(6001),
+                    replicas: vec![],
+                },
+                PartitionMap {
+                    id: 1,
+                    mirror: Some(6002),
+                    replicas: vec![],
+                },
+            ]
+            .into()
+        );
     }
 }

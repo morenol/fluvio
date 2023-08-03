@@ -139,7 +139,18 @@ impl CreateTopicOpt {
         use load::ReadFromJson;
 
         let replica_spec = if let Some(replica_assign_file) = &self.replica_assignment {
-            ReplicaSpec::Assigned(PartitionMaps::read_from_json_file(replica_assign_file)?)
+            ReplicaSpec::Assigned(PartitionMaps::read_from_json_file(replica_assign_file))?
+        } else if let Some(mirror_assign_file) = &self.mirror_assignment {
+            let mirror_map = PartitionMaps::read_mirror_assignment(mirror_assign_file).map_err(|err| {
+                IoError::new(
+                    ErrorKind::InvalidInput,
+                    format!(
+                        "cannot parse replica assignment file {mirror_assign_file:?}: {err}"
+                    ),
+                )
+            })?;
+            ReplicaSpec::Mirror(mirror_map)
+
         } else {
             ReplicaSpec::Computed(TopicReplicaParam {
                 partitions: self.partitions,
@@ -240,17 +251,9 @@ mod load {
         }
     }
 
-<<<<<<< HEAD
     pub(crate) trait ReadFromJson: Sized {
         /// Read and decode from json file
         fn read_from_json_file<T: AsRef<Path>>(path: T) -> Result<Self>;
-=======
-    pub(crate) trait PartitionLoad: Sized {
-        fn file_decode<T: AsRef<Path>>(path: T) -> Result<Self, IoError>;
-
-        // read and decode the mirror file into Replica Assignment map
-        fn read_mirror_assignment<T: AsRef<Path>>(path: T) -> Result<Self>;
->>>>>>> 4f3fb592 (add test for mirror)
     }
 
     impl ReadFromJson for PartitionMaps {

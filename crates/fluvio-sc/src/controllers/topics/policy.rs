@@ -111,6 +111,22 @@ pub async fn update_replica_map_for_assigned_topic<C: MetadataItem>(
     }
 }
 
+///
+/// generate replica map from mirror topic
+///
+#[instrument(skip(mirror, _spu_store))]
+pub(crate) async fn update_replica_map_for_mirror(
+    mirror: &MirrorConfig,
+    _spu_store: &SpuAdminStore,
+) -> TopicNextState {
+    let replica_map = mirror.as_partition_maps().partition_map_to_replica_map();
+    if replica_map.is_empty() {
+        TopicStatus::next_resolution_invalid_config("invalid replica map".to_owned()).into()
+    } else {
+        (TopicStatus::next_resolution_provisioned(), replica_map).into()
+    }
+}
+
 /// values for next state
 #[derive(Default, Debug)]
 pub struct TopicNextState<C: MetadataItem> {
@@ -220,7 +236,7 @@ impl<C: MetadataItem> TopicNextState<C> {
             },
 
             // Assign Topic
-            ReplicaSpec::Assigned(ref partition_map) | ReplicaSpec::Mirror(ref partition_map) => match topic.status.resolution {
+            ReplicaSpec::Assigned(ref partition_map) => match topic.status.resolution {
                 TopicResolution::Init | TopicResolution::InvalidConfig => {
                     validate_assigned_topic_parameters(partition_map)
                 }
@@ -243,7 +259,35 @@ impl<C: MetadataItem> TopicNextState<C> {
                     }
                     next_state
                 }
-            }
+            },
+            ReplicaSpec::Mirror(ref mirror_config) => match topic.status.resolution {
+                TopicResolution::Init | TopicResolution::InvalidConfig => {
+                    if let Err(err) = mirror_config.validate() {
+                        TopicStatus::next_resolution_invalid_config(err.to_string()).into()
+                    } else {
+                        TopicStatus::next_resolution_pending().into()
+                    }
+                }
+                TopicResolution::Pending | TopicResolution::InsufficientResources => {
+                    let mut next_state =
+                        update_replica_map_for_mirror(mirror_config, spu_store).await;
+                    if next_state.resolution == TopicResolution::Provisioned {
+                        next_state.partitions = topic.create_new_partitions(partition_store).await;
+                    }
+                    next_state
+                }
+                _ => {
+                    debug!(
+                        "assigned topic: {} resolution: {:#?} ignoring",
+                        topic.key, topic.status.resolution
+                    );
+                    let mut next_state = TopicNextState::same_next_state(topic);
+                    if next_state.resolution == TopicResolution::Provisioned {
+                        next_state.partitions = topic.create_new_partitions(partition_store).await;
+                    }
+                    next_state
+                }
+            },
         }
     }
 }

@@ -1,0 +1,12 @@
+# This is to create CRD but not for testing
+apiVersion: fluvio.infinyon.com/v2
+kind: Topic
+metadata:
+  name: test3
+  namespace: default
+spec:
+  replicas:
+    mirror:
+    - id: 0
+      mirror: 6001
+  compressionType: Any

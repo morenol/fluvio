@@ -45,4 +45,13 @@ mod test_spec {
         assert_eq!(topic.metadata.name, "test3");
         assert!(matches!(topic.spec.replicas(), ReplicaSpec::Assigned(_)));
     }
+
+    #[test]
+    fn read_k8_topic_partition_mirror_json() {
+        let reader: BufReader<File> =
+            BufReader::new(File::open("tests/topic_mirror.json").expect("spec"));
+        let topic: K8TopicSpec = serde_json::from_reader(reader).expect("failed to parse topic");
+        assert_eq!(topic.metadata.name, "test3");
+        assert!(matches!(topic.spec.replicas(), ReplicaSpec::Mirror(_)));
+    }
 }

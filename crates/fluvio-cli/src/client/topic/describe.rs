@@ -143,10 +143,8 @@ mod display {
                         Some(partitions.maps.clone()),
                     ));
                     */
-                },
-                ReplicaSpec::Mirror(_partitions) => {
-                    
                 }
+                ReplicaSpec::Mirror(_partitions) => {}
             }
 
             if let Some(dedup) = spec.get_deduplication() {
