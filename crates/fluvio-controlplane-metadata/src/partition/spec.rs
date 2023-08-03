@@ -21,8 +21,9 @@ use crate::topic::{CleanupPolicy, TopicStorageConfig, TopicSpec, CompressionAlgo
 pub struct PartitionSpec {
     pub leader: SpuId,
     pub replicas: Vec<SpuId>,
+    #[cfg_attr(feature = "use_serde", serde(default))]
     #[fluvio(min_version = 13)]
-    pub mirror: SpuId,
+    pub mirror: Option<SpuId>,
     #[fluvio(min_version = 4)]
     pub cleanup_policy: Option<CleanupPolicy>,
     #[fluvio(min_version = 4)]

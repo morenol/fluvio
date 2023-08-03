@@ -41,7 +41,7 @@ where
             debug!("Topic: {} creating partition: {}", self.key(), replica_key);
             let mut partition_spec = PartitionSpec::from_replicas(replicas.clone(), &self.spec);
             if let Some(mirror_id) = self.status.mirror_map.get(idx) {
-                partition_spec.mirror = *mirror_id;
+                partition_spec.mirror = Some(*mirror_id);
             }
             if !partition_store.contains_key(&replica_key).await {
                 partitions.push(
