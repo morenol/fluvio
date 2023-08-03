@@ -11,7 +11,7 @@ use std::fmt;
 use fluvio_protocol::{Encoder, Decoder};
 use fluvio_types::{ReplicaMap, SpuId, PartitionId};
 
-pub type MirrorMap = BTreeMap<PartitionId,SpuId>;
+pub type MirrorMap = BTreeMap<PartitionId, SpuId>;
 
 // -----------------------------------
 // Data Structures

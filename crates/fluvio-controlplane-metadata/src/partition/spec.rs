@@ -21,6 +21,8 @@ use crate::topic::{CleanupPolicy, TopicStorageConfig, TopicSpec, CompressionAlgo
 pub struct PartitionSpec {
     pub leader: SpuId,
     pub replicas: Vec<SpuId>,
+    #[fluvio(min_version = 13)]
+    pub mirror: SpuId,
     #[fluvio(min_version = 4)]
     pub cleanup_policy: Option<CleanupPolicy>,
     #[fluvio(min_version = 4)]
@@ -52,6 +54,7 @@ impl PartitionSpec {
             storage: topic.get_storage().cloned(),
             compression_type: topic.get_compression_type().clone(),
             deduplication: topic.get_deduplication().cloned(),
+            ..Default::default()
         }
     }
 

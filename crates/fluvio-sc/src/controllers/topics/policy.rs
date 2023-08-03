@@ -128,7 +128,6 @@ pub(crate) async fn generate_replica_map_for_mirror(
     mirror: &MirrorConfig,
     spus: &SpuAdminStore,
 ) -> TopicNextState {
-
     let partitions = mirror.partition_count();
     // create pseudo normal replica map
     let computed_param = TopicReplicaParam {
@@ -137,15 +136,22 @@ pub(crate) async fn generate_replica_map_for_mirror(
     };
 
     let replica_map = generate_replica_map_for_topic(spus, &computed_param, None).await;
-    // generate mirror map
-    
 
-    // add mirror
-    let replica_map = mirror.as_partition_maps().as_replica_map();
     if replica_map.is_empty() {
-        TopicStatus::next_resolution_invalid_config("invalid replica map".to_owned()).into()
-    } else {
-        (TopicStatus::next_resolution_provisioned(), replica_map).into()
+        return TopicStatus::set_resolution_no_resource("empty replica map").into();
+    }
+
+    let mut mirror_map = BTreeMap::new();
+    // generate mirror map
+    for (partition, mirror_id) in mirror.mirror_ids().iter().enumerate() {
+        mirror_map.insert(partition as PartitionId, *mirror_id);
+    }
+
+    TopicNextState {
+        resolution: TopicResolution::Provisioned,
+        mirror_map,
+        replica_map,
+        ..Default::default()
     }
 }
 
