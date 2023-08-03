@@ -11,6 +11,8 @@ use std::fmt;
 use fluvio_protocol::{Encoder, Decoder};
 use fluvio_types::{ReplicaMap, SpuId, PartitionId};
 
+pub type MirrorMap = BTreeMap<PartitionId,SpuId>;
+
 // -----------------------------------
 // Data Structures
 // -----------------------------------
@@ -24,6 +26,8 @@ use fluvio_types::{ReplicaMap, SpuId, PartitionId};
 pub struct TopicStatus {
     pub resolution: TopicResolution,
     pub replica_map: ReplicaMap,
+    #[cfg_attr(feature = "use_serde", serde(default))]
+    pub mirror_map: MirrorMap,
     pub reason: String,
 }
 
@@ -114,6 +118,7 @@ impl ::std::default::Default for TopicStatus {
             resolution: TopicResolution::Init,
             replica_map: BTreeMap::new(),
             reason: "".to_owned(),
+            mirror_map: BTreeMap::new(),
         }
     }
 }
@@ -139,6 +144,7 @@ impl TopicStatus {
             resolution,
             replica_map: create_replica_map(replica_map),
             reason: reason.into(),
+            mirror_map: BTreeMap::new(),
         }
     }
 

@@ -121,12 +121,26 @@ pub async fn update_replica_map_for_assigned_topic<C: MetadataItem>(
 
 ///
 /// generate replica map from mirror topic
+/// this is similar to computed topic but addes mirror spu
 ///
-#[instrument(skip(mirror, _spu_store))]
-pub(crate) async fn update_replica_map_for_mirror(
+#[instrument(skip(mirror, spus))]
+pub(crate) async fn generate_replica_map_for_mirror(
     mirror: &MirrorConfig,
-    _spu_store: &SpuAdminStore,
+    spus: &SpuAdminStore,
 ) -> TopicNextState {
+
+    let partitions = mirror.partition_count();
+    // create pseudo normal replica map
+    let computed_param = TopicReplicaParam {
+        partitions,
+        ..Default::default()
+    };
+
+    let replica_map = generate_replica_map_for_topic(spus, &computed_param, None).await;
+    // generate mirror map
+    
+
+    // add mirror
     let replica_map = mirror.as_partition_maps().as_replica_map();
     if replica_map.is_empty() {
         TopicStatus::next_resolution_invalid_config("invalid replica map".to_owned()).into()
@@ -142,6 +156,7 @@ pub struct TopicNextState<C: MetadataItem> {
     pub reason: String,
     pub replica_map: ReplicaMap,
     pub partitions: Vec<PartitionMetadata<C>>,
+    pub mirror_map: MirrorMap
 }
 
 impl<C: MetadataItem> fmt::Display for TopicNextState<C> {
@@ -274,7 +289,7 @@ impl<C: MetadataItem> TopicNextState<C> {
                 }
                 TopicResolution::Pending | TopicResolution::InsufficientResources => {
                     let mut next_state =
-                        update_replica_map_for_mirror(mirror_config, spu_store).await;
+                        generate_replica_map_for_mirror(mirror_config, spu_store).await;
                     if next_state.resolution == TopicResolution::Provisioned {
                         next_state.partitions = topic.create_new_partitions(partition_store).await;
                     }

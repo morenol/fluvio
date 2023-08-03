@@ -609,6 +609,10 @@ impl MirrorConfig {
         None
     }
 
+    pub fn mirror_ids(&self) -> &Vec<SpuId> {
+        &self.0
+    }
+
     pub fn as_partition_maps(&self) -> PartitionMaps {
         let mut maps = vec![];
         for (partition_id, spu_id) in self.0.iter().enumerate() {
