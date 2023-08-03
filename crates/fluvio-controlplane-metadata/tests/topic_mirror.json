@@ -9,10 +9,8 @@
         "compressionType": "Any",
         "replicas": {
             "mirror": [
-                {
-                    "id": 0,
-                    "mirror": 6001
-                }
+                5001,
+                5002
             ]
         }
     }

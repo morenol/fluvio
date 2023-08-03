@@ -59,22 +59,7 @@ spec:
                     mirror:
                       type: array
                       items:
-                        type: object
-                        required:
-                          - id
-                          - mirror
-                        properties:
-                          id:
-                            type: integer
-                            minimum: 0
-                          mirror:
-                            type: integer
-                            minimum: 0
-                          replicas:
-                            type: array
-                            items:
-                              type: integer
-                              minimum: 0
+                        type: integer
                   oneOf:
                     - required: ["computed"]
                     - required: ["assigned"]
