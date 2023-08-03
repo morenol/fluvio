@@ -23,6 +23,8 @@ use fluvio_controlplane_metadata::extended::SpecExt;
 use fluvio_controlplane_metadata::smartmodule::SmartModulePackageKey;
 use fluvio_stream_model::core::MetadataItem;
 
+use crate::controllers::topics::update_replica_map_for_mirror;
+use crate::controllers::topics::validate_mirror_topic_parameter;
 use crate::core::Context;
 use crate::controllers::topics::generate_replica_map;
 use crate::controllers::topics::update_replica_map_for_assigned_topic;
@@ -182,8 +184,28 @@ async fn validate_topic_request<C: MetadataItem>(
                 }
             }
         }
-        ReplicaSpec::Mirror(_) => {
-            todo!()
+        ReplicaSpec::Mirror(ref mirror) => {
+            let next_state = validate_mirror_topic_parameter(mirror);
+            trace!("validating, mirror topic: {:#?}", next_state);
+            if next_state.resolution.is_invalid() {
+                Status::new(
+                    name.to_string(),
+                    ErrorCode::TopicError,
+                    Some(next_state.reason),
+                )
+            } else {
+                let next_state = update_replica_map_for_mirror(mirror, spus).await;
+                trace!("updating, mirror topic: {:#?}", next_state);
+                if next_state.resolution.is_invalid() {
+                    Status::new(
+                        name.to_string(),
+                        ErrorCode::TopicError,
+                        Some(next_state.reason),
+                    )
+                } else {
+                    Status::new_ok(name.to_owned())
+                }
+            }
         }
     }
 }

@@ -52,6 +52,14 @@ pub fn validate_computed_topic_parameters<C: MetadataItem>(
     }
 }
 
+pub fn validate_mirror_topic_parameter(mirror: &MirrorConfig) -> TopicNextState {
+    if let Err(err) = mirror.validate() {
+        TopicStatus::next_resolution_invalid_config(err.to_string()).into()
+    } else {
+        TopicStatus::next_resolution_pending().into()
+    }
+}
+
 ///
 /// Generate Replica Map if there are enough online spus
 ///  * returns a replica map or a reason for the failure
@@ -262,11 +270,7 @@ impl<C: MetadataItem> TopicNextState<C> {
             },
             ReplicaSpec::Mirror(ref mirror_config) => match topic.status.resolution {
                 TopicResolution::Init | TopicResolution::InvalidConfig => {
-                    if let Err(err) = mirror_config.validate() {
-                        TopicStatus::next_resolution_invalid_config(err.to_string()).into()
-                    } else {
-                        TopicStatus::next_resolution_pending().into()
-                    }
+                    validate_mirror_topic_parameter(mirror_config)
                 }
                 TopicResolution::Pending | TopicResolution::InsufficientResources => {
                     let mut next_state =
