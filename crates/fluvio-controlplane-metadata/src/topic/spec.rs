@@ -588,9 +588,9 @@ impl std::fmt::Display for MirrorConfig {
     }
 }
 
-impl Into<Vec<SpuId>> for MirrorConfig {
-    fn into(self) -> Vec<SpuId> {
-        self.0
+impl From<MirrorConfig> for Vec<SpuId> {
+    fn from(value: MirrorConfig) -> Self {
+        value.0
     }
 }
 

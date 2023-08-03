@@ -18,7 +18,7 @@ use fluvio::metadata::topic::ReplicaSpec;
 use fluvio::metadata::topic::SegmentBasedPolicy;
 use fluvio::metadata::topic::TopicStorageConfig;
 use fluvio::metadata::topic::CompressionAlgorithm;
-
+use fluvio_controlplane_metadata::topic::MirrorConfig;
 use fluvio_controlplane_metadata::topic::config::TopicConfig;
 use fluvio_sc_schema::shared::validate_resource_name;
 
@@ -139,18 +139,10 @@ impl CreateTopicOpt {
         use load::ReadFromJson;
 
         let replica_spec = if let Some(replica_assign_file) = &self.replica_assignment {
-            ReplicaSpec::Assigned(PartitionMaps::read_from_json_file(replica_assign_file))?
+            ReplicaSpec::Assigned(PartitionMaps::read_from_json_file(replica_assign_file)?)
         } else if let Some(mirror_assign_file) = &self.mirror_assignment {
-            let mirror_map = PartitionMaps::read_mirror_assignment(mirror_assign_file).map_err(|err| {
-                IoError::new(
-                    ErrorKind::InvalidInput,
-                    format!(
-                        "cannot parse replica assignment file {mirror_assign_file:?}: {err}"
-                    ),
-                )
-            })?;
+            let mirror_map = MirrorConfig::read_from_json_file(mirror_assign_file)?;
             ReplicaSpec::Mirror(mirror_map)
-
         } else {
             ReplicaSpec::Computed(TopicReplicaParam {
                 partitions: self.partitions,
@@ -227,29 +219,7 @@ mod load {
     use std::path::Path;
 
     use anyhow::{anyhow, Result};
-    use serde::Deserialize;
-
-    use fluvio::metadata::topic::PartitionMaps;
-    use fluvio_controlplane_metadata::topic::PartitionMap;
-    use fluvio_types::SpuId;
-
-
-    #[derive(Deserialize, Debug)]
-    struct MirrorConfig(Vec<SpuId>);
-
-    impl From<MirrorConfig> for PartitionMaps {
-        fn from(mirror_config: MirrorConfig) -> Self {
-            let mut maps = vec![];
-            for (partition_id, spu_id) in mirror_config.0.into_iter().enumerate() {
-                maps.push(PartitionMap {
-                    id: partition_id as u32,
-                    mirror: Some(spu_id),
-                    ..Default::default()
-                });
-            }
-            maps.into()
-        }
-    }
+    use fluvio::metadata::topic::{PartitionMaps, MirrorConfig};
 
     pub(crate) trait ReadFromJson: Sized {
         /// Read and decode from json file
@@ -262,21 +232,22 @@ mod load {
             serde_json::from_str(&file_str)
                 .map_err(|err| anyhow!("error reading replica assignment: {err}"))
         }
+    }
 
-        
-        fn read_mirror_assignment<T: AsRef<Path>>(path: T) -> Result<Self> {
+    impl ReadFromJson for MirrorConfig {
+        fn read_from_json_file<T: AsRef<Path>>(path: T) -> Result<Self> {
             let file_str: String = read_to_string(path)?;
-            let mirro_config: MirrorConfig =
-            serde_json::from_str(&file_str)
+            let mirro_config: MirrorConfig = serde_json::from_str(&file_str)
                 .map_err(|err| anyhow!("error reading mirror assignment: {err}"))?;
-            Ok(mirro_config.into())
+            Ok(mirro_config)
         }
     }
 
     #[cfg(test)]
     mod test {
 
-        use fluvio_controlplane_metadata::topic::PartitionMaps;
+        use fluvio_controlplane_metadata::topic::{PartitionMaps, MirrorConfig};
+        use fluvio_types::SpuId;
 
         use super::ReadFromJson;
 
@@ -292,12 +263,12 @@ mod load {
 
         #[test]
         fn test_mirror_map_file() {
-            let p_map = PartitionMaps::read_mirror_assignment("test-data/topics/mirror_assignment.json")
+            let m = MirrorConfig::read_from_json_file("test-data/topics/mirror_assignment.json")
                 .expect("v1 not found");
-            assert_eq!(p_map.maps().len(), 2);
-            assert_eq!(p_map.maps()[0].id, 0);
-            assert!(p_map.maps()[0].replicas.is_empty());
-            assert_eq!(p_map.maps()[0].mirror, Some(6001));
+            let mirror_spus: Vec<SpuId> = m.into();
+            assert_eq!(mirror_spus.len(), 2);
+            assert_eq!(mirror_spus[0], 6001);
+            assert_eq!(mirror_spus[1], 6002);
         }
     }
 }
