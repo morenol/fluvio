@@ -39,7 +39,10 @@ where
         for (idx, replicas) in self.status.replica_map.iter() {
             let replica_key = ReplicaKey::new(self.key(), *idx);
             debug!("Topic: {} creating partition: {}", self.key(), replica_key);
-            let partition_spec = PartitionSpec::from_replicas(replicas.clone(), &self.spec);
+            let mut partition_spec = PartitionSpec::from_replicas(replicas.clone(), &self.spec);
+            if let Some(mirror_id) = self.status.mirror_map.get(idx) {
+                partition_spec.mirror = *mirror_id;
+            }
             if !partition_store.contains_key(&replica_key).await {
                 partitions.push(
                     MetadataStoreObject::with_spec(replica_key, partition_spec)
