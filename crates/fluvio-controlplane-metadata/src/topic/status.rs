@@ -160,6 +160,10 @@ impl TopicStatus {
         self.replica_map = replica_map;
     }
 
+    pub fn set_mirror_map(&mut self, mirror_map: MirrorMap) {
+        self.mirror_map = mirror_map;
+    }
+
     pub fn spus_in_replica(&self) -> Vec<SpuId> {
         let mut spu_list: Vec<SpuId> = vec![];
 

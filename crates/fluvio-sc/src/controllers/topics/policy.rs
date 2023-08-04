@@ -128,10 +128,13 @@ pub(crate) async fn generate_replica_map_for_mirror(
     mirror: &MirrorConfig,
     spus: &SpuAdminStore,
 ) -> TopicNextState {
+    info!(mirror = ?mirror, "generating replica map for mirror topic");
+
     let partitions = mirror.partition_count();
     // create pseudo normal replica map
     let computed_param = TopicReplicaParam {
         partitions,
+        replication_factor: 1,
         ..Default::default()
     };
 
@@ -216,6 +219,9 @@ impl<C: MetadataItem> TopicNextState<C> {
         if !self.replica_map.is_empty() {
             topic.status.set_replica_map(self.replica_map);
         }
+        if !self.mirror_map.is_empty() {
+            topic.status.set_mirror_map(self.mirror_map);
+        }
         self.partitions
     }
 
@@ -296,6 +302,9 @@ impl<C: MetadataItem> TopicNextState<C> {
                 TopicResolution::Pending | TopicResolution::InsufficientResources => {
                     let mut next_state =
                         generate_replica_map_for_mirror(mirror_config, spu_store).await;
+                    info!(
+                        next_state = ?next_state,
+                        "generated replica map for mirror topic");
                     if next_state.resolution == TopicResolution::Provisioned {
                         next_state.partitions = topic.create_new_partitions(partition_store).await;
                     }

@@ -70,6 +70,14 @@ impl PartitionSpec {
             .filter_map(|r| if r == &self.leader { None } else { Some(*r) })
             .collect()
     }
+
+    pub fn mirror_string(&self) -> String {
+        if let Some(mirror) = self.mirror {
+            format!("{}", mirror)
+        } else {
+            "".to_owned()
+        }
+    }
 }
 
 impl From<Vec<SpuId>> for PartitionSpec {
