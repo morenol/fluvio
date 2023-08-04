@@ -18,6 +18,9 @@ use fluvio_stream_model::core::MetadataItem;
 
 use crate::stores::partition::PartitionLocalStore;
 use crate::stores::spu::SpuLocalStore;
+use fluvio_controlplane_metadata::topic::PartitionMaps;
+use fluvio_controlplane_metadata::topic::TopicStatus;
+use fluvio_controlplane_metadata::topic::*;
 use crate::stores::spu::SpuLocalStorePolicy;
 use crate::stores::topic::TopicMd;
 use crate::stores::topic::TopicMetadata;
