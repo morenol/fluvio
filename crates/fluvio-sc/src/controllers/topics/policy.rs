@@ -52,7 +52,10 @@ pub fn validate_computed_topic_parameters<C: MetadataItem>(
     }
 }
 
-pub fn validate_mirror_topic_parameter(mirror: &MirrorConfig) -> TopicNextState {
+pub fn validate_mirror_topic_parameter<C>(mirror: &MirrorConfig) -> TopicNextState<C>
+where
+    C: MetadataItem + Send + Sync,
+{
     if let Err(err) = mirror.validate() {
         TopicStatus::next_resolution_invalid_config(err.to_string()).into()
     } else {
@@ -124,11 +127,14 @@ pub async fn update_replica_map_for_assigned_topic<C: MetadataItem>(
 /// this is similar to computed topic but addes mirror spu
 ///
 #[instrument(skip(mirror, spus))]
-pub(crate) async fn generate_replica_map_for_mirror(
+pub(crate) async fn generate_replica_map_for_mirror<C>(
     mirror: &MirrorConfig,
-    spus: &SpuAdminStore,
-) -> TopicNextState {
-    info!(mirror = ?mirror, "generating replica map for mirror topic");
+    spus: &SpuLocalStore<C>,
+) -> TopicNextState<C>
+where
+    C: MetadataItem + Send + Sync,
+{
+    debug!(mirror = ?mirror, "generating replica map for mirror topic");
 
     let partitions = mirror.partition_count();
     // create pseudo normal replica map
@@ -165,7 +171,7 @@ pub struct TopicNextState<C: MetadataItem> {
     pub reason: String,
     pub replica_map: ReplicaMap,
     pub partitions: Vec<PartitionMetadata<C>>,
-    pub mirror_map: MirrorMap
+    pub mirror_map: MirrorMap,
 }
 
 impl<C: MetadataItem> fmt::Display for TopicNextState<C> {

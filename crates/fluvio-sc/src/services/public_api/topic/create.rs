@@ -185,7 +185,7 @@ async fn validate_topic_request<C: MetadataItem>(
             }
         }
         ReplicaSpec::Mirror(ref mirror) => {
-            let next_state = validate_mirror_topic_parameter(mirror);
+            let next_state = validate_mirror_topic_parameter::<K8MetaItem>(mirror);
             trace!("validating, mirror topic: {:#?}", next_state);
             if next_state.resolution.is_invalid() {
                 Status::new(
@@ -194,7 +194,7 @@ async fn validate_topic_request<C: MetadataItem>(
                     Some(next_state.reason),
                 )
             } else {
-                let next_state = generate_replica_map_for_mirror(mirror, spus).await;
+                let next_state = generate_replica_map_for_mirror::<K8MetaItem>(mirror, spus).await;
                 trace!("updating, mirror topic: {:#?}", next_state);
                 if next_state.resolution.is_invalid() {
                     Status::new(
