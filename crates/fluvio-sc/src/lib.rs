@@ -1,5 +1,8 @@
-#[cfg(all(feature = "k8", feature = "edge"))]
-compile_error!("features `fluvio-sc/k8` and `fluvio-sc/edge` are mutually exclusive");
+#[cfg(all(feature = "k8", feature = "fs"))]
+compile_error!("features `fluvio-sc/k8` and `fluvio-sc/fs` are mutually exclusive");
+
+#[cfg(not(any(feature = "k8", feature = "fs")))]
+compile_error!("one of `fluvio-sc/k8` or `fluvio-sc/fs` features is required");
 
 #[macro_use]
 pub mod config;

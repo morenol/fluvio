@@ -21,12 +21,12 @@ required-features = ["k8"]
 [[bin]]
 name = "fluvio-sc-edge"
 path = "src/bin/edge.rs"
-required-features = ["edge"]
+required-features = ["fs"]
 
 [features]
 default = ["k8"]
 k8 = ["k8-client", "k8-types", "k8-metadata-client"]
-edge = []
+fs = []
 
 [dependencies]
 rand = { workspace = true }
