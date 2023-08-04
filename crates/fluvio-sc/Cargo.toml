@@ -18,9 +18,15 @@ name = "fluvio-sc-k8"
 path = "src/bin/k8.rs"
 required-features = ["k8"]
 
+[[bin]]
+name = "fluvio-sc-edge"
+path = "src/bin/edge.rs"
+required-features = ["edge"]
+
 [features]
 default = ["k8"]
 k8 = ["k8-client", "k8-types", "k8-metadata-client"]
+edge = []
 
 [dependencies]
 rand = { workspace = true }

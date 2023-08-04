@@ -69,7 +69,7 @@ pub(crate) async fn handle_create_topics_request<AC: AuthContext, C: MetadataIte
         status = process_topic_request(auth_ctx, name, topic).await;
     }
 
-    trace!("create topics request response {:#?}", status);
+    trace!(?status, "create topics request response");
 
     Ok(status)
 }
@@ -80,7 +80,7 @@ async fn validate_topic_request<C: MetadataItem>(
     topic_spec: &TopicSpec,
     metadata: &Context<C>,
 ) -> Status {
-    debug!("validating topic: {}", name);
+    debug!(topic_name = %name, "validating topic");
 
     if let Err(err) = validate_resource_name(name) {
         return Status::new(
