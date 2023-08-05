@@ -3,6 +3,7 @@
 //!
 //! Metadata stores a copy of the data from KV store in local memory.
 //!
+use std::marker::PhantomData;
 use std::sync::Arc;
 
 use fluvio_stream_model::core::MetadataItem;
@@ -16,28 +17,74 @@ use crate::stores::smartmodule::*;
 use crate::stores::tableformat::*;
 use crate::stores::*;
 
-pub type SharedContext<C> = Arc<Context<C>>;
-pub type K8SharedContext = Arc<Context<K8MetaItem>>;
+pub type SharedContext<
+    C,
+    SpuStore,
+    PartitionStore,
+    TopicStore,
+    SpgStore,
+    SmartModuleStore,
+    TableFormatStore,
+> = Arc<
+    Context<C, SpuStore, PartitionStore, TopicStore, SpgStore, SmartModuleStore, TableFormatStore>,
+>;
 
+pub type K8Context = Context<
+    K8MetaItem,
+    StoreContext<SpuSpec>,
+    StoreContext<PartitionSpec>,
+    StoreContext<TopicSpec>,
+    StoreContext<SpuGroupSpec>,
+    StoreContext<SmartModuleSpec>,
+    StoreContext<TableFormatSpec>,
+>;
+pub type K8SharedContext = SharedContext<
+    K8MetaItem,
+    StoreContext<SpuSpec>,
+    StoreContext<PartitionSpec>,
+    StoreContext<TopicSpec>,
+    StoreContext<SpuGroupSpec>,
+    StoreContext<SmartModuleSpec>,
+    StoreContext<TableFormatSpec>,
+>;
 /// Global Context for SC
 /// This is where we store globally accessible data
 #[derive(Debug)]
-pub struct Context<C: MetadataItem> {
-    spus: StoreContext<SpuSpec, C>,
-    partitions: StoreContext<PartitionSpec, C>,
-    topics: StoreContext<TopicSpec, C>,
-    spgs: StoreContext<SpuGroupSpec, C>,
-    smartmodules: StoreContext<SmartModuleSpec, C>,
-    tableformats: StoreContext<TableFormatSpec, C>,
+pub struct Context<
+    C: MetadataItem,
+    SpuStore: Store<SpuSpec, C>,
+    PartitionStore: Store<PartitionSpec, C>,
+    TopicStore: Store<TopicSpec, C>,
+    SpgStore: Store<SpuGroupSpec, C>,
+    SmartModuleStore: Store<SmartModuleSpec, C>,
+    TableFormatStore: Store<TableFormatSpec, C>,
+> {
+    spus: SpuStore,
+    partitions: PartitionStore,
+    topics: TopicStore,
+    spgs: SpgStore,
+    smartmodules: SmartModuleStore,
+    tableformats: TableFormatStore,
     health: SharedHealthCheck,
     config: ScConfig,
+    phantom: std::marker::PhantomData<C>,
 }
 
 // -----------------------------------
 // ScMetadata - Implementation
 // -----------------------------------
 
-impl<C: MetadataItem> Context<C> {
+impl<
+        C: MetadataItem,
+        SpuStore: Store<SpuSpec, C>,
+        PartitionStore: Store<PartitionSpec, C>,
+        TopicStore: Store<TopicSpec, C>,
+        SpgStore: Store<SpuGroupSpec, C>,
+        SmartModuleStore: Store<SmartModuleSpec, C>,
+        TableFormatStore: Store<TableFormatSpec, C>,
+    >
+    Context<C, SpuStore, PartitionStore, TopicStore, SpgStore, SmartModuleStore, TableFormatStore>
+{
     pub fn shared_metadata(config: ScConfig) -> Arc<Self> {
         Arc::new(Self::new(config))
     }
@@ -45,41 +92,42 @@ impl<C: MetadataItem> Context<C> {
     /// private function to provision metadata
     fn new(config: ScConfig) -> Self {
         Self {
-            spus: StoreContext::new(),
-            partitions: StoreContext::new(),
-            topics: StoreContext::new(),
-            spgs: StoreContext::new(),
-            smartmodules: StoreContext::new(),
-            tableformats: StoreContext::new(),
+            spus: SpuStore::new(),
+            partitions: PartitionStore::new(),
+            topics: TopicStore::new(),
+            spgs: SpgStore::new(),
+            smartmodules: SmartModuleStore::new(),
+            tableformats: TableFormatStore::new(),
             health: HealthCheck::shared(),
             config,
+            phantom: PhantomData,
         }
     }
 
     /// reference to spus
-    pub fn spus(&self) -> &StoreContext<SpuSpec, C> {
+    pub fn spus(&self) -> &SpuStore {
         &self.spus
     }
 
     /// reference to partitions
-    pub fn partitions(&self) -> &StoreContext<PartitionSpec, C> {
+    pub fn partitions(&self) -> &PartitionStore {
         &self.partitions
     }
 
     /// reference to topics
-    pub fn topics(&self) -> &StoreContext<TopicSpec, C> {
+    pub fn topics(&self) -> &TopicStore {
         &self.topics
     }
 
-    pub fn spgs(&self) -> &StoreContext<SpuGroupSpec, C> {
+    pub fn spgs(&self) -> &SpgStore {
         &self.spgs
     }
 
-    pub fn smartmodules(&self) -> &StoreContext<SmartModuleSpec, C> {
+    pub fn smartmodules(&self) -> &SmartModuleStore {
         &self.smartmodules
     }
 
-    pub fn tableformats(&self) -> &StoreContext<TableFormatSpec, C> {
+    pub fn tableformats(&self) -> &TableFormatStore {
         &self.tableformats
     }
 

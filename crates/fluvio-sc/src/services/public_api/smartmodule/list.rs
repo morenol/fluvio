@@ -1,29 +1,31 @@
 use std::io::{Error, ErrorKind};
-use std::fmt::Debug;
 
 use anyhow::Result;
+use fluvio_stream_model::core::MetadataItem;
 use tracing::{debug, trace, instrument};
 
-use fluvio_controlplane_metadata::core::{Spec, MetadataItem};
+use fluvio_controlplane_metadata::core::Spec;
 use fluvio_controlplane_metadata::smartmodule::{SmartModuleSpec, SmartModulePackageKey};
 use fluvio_sc_schema::AdminSpec;
-use fluvio_stream_dispatcher::store::StoreContext;
 
 use fluvio_sc_schema::objects::{ListResponse, Metadata};
 use fluvio_sc_schema::objects::ListFilter;
 use fluvio_auth::{AuthContext, TypeAction};
 use fluvio_controlplane_metadata::extended::SpecExt;
 
+use crate::stores::Store;
+
 #[instrument(skip(filters, auth, object_ctx))]
-pub(crate) async fn fetch_smart_modules<AC: AuthContext, M>(
+pub(crate) async fn fetch_smart_modules<AC: AuthContext, C, SS>(
     filters: Vec<ListFilter>,
     summary: bool,
     auth: &AC,
-    object_ctx: &StoreContext<SmartModuleSpec, M>,
+    object_ctx: &SS,
 ) -> Result<ListResponse<SmartModuleSpec>>
 where
     AC: AuthContext,
-    M: MetadataItem + Debug,
+    C: MetadataItem,
+    SS: Store<SmartModuleSpec, C>,
 {
     debug!("fetching list of smartmodules");
 
@@ -46,7 +48,9 @@ where
         sm_keys.push(SmartModulePackageKey::from_qualified_name(&filter.name)?);
     }
 
-    let reader = object_ctx.store().read().await;
+    let store = object_ctx.store();
+
+    let reader = store.read().await;
     let objects: Vec<Metadata<SmartModuleSpec>> = reader
         .values()
         .filter_map(|value| {

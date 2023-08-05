@@ -12,6 +12,12 @@
 use tracing::{info, debug, trace, instrument};
 use anyhow::{anyhow, Result};
 
+use fluvio_controlplane_metadata::partition::PartitionSpec;
+use fluvio_controlplane_metadata::smartmodule::SmartModulePackageKey;
+use fluvio_controlplane_metadata::smartmodule::SmartModuleSpec;
+use fluvio_controlplane_metadata::spg::SpuGroupSpec;
+use fluvio_controlplane_metadata::spu::SpuSpec;
+use fluvio_controlplane_metadata::tableformat::TableFormatSpec;
 use fluvio_protocol::link::ErrorCode;
 use fluvio_controlplane_metadata::topic::ReplicaSpec;
 use fluvio_sc_schema::objects::CreateRequest;
@@ -20,7 +26,6 @@ use fluvio_sc_schema::Status;
 use fluvio_sc_schema::topic::TopicSpec;
 use fluvio_auth::{AuthContext, TypeAction};
 use fluvio_controlplane_metadata::extended::SpecExt;
-use fluvio_controlplane_metadata::smartmodule::SmartModulePackageKey;
 use fluvio_stream_model::core::MetadataItem;
 
 use crate::controllers::topics::generate_replica_map_for_mirror;
@@ -31,12 +36,31 @@ use crate::controllers::topics::update_replica_map_for_assigned_topic;
 use crate::controllers::topics::validate_computed_topic_parameters;
 use crate::controllers::topics::validate_assigned_topic_parameters;
 use crate::services::auth::AuthServiceContext;
+use crate::stores::Store;
 
 /// Handler for create topic request
 #[instrument(skip(req, auth_ctx))]
-pub(crate) async fn handle_create_topics_request<AC: AuthContext, C: MetadataItem>(
+pub(crate) async fn handle_create_topics_request<
+    AC: AuthContext,
+    C: MetadataItem,
+    SpuStore: Store<SpuSpec, C>,
+    PartitionStore: Store<PartitionSpec, C>,
+    TopicStore: Store<TopicSpec, C>,
+    SpgStore: Store<SpuGroupSpec, C>,
+    SmartModuleStore: Store<SmartModuleSpec, C>,
+    TableFormatStore: Store<TableFormatSpec, C>,
+>(
     req: CreateRequest<TopicSpec>,
-    auth_ctx: &AuthServiceContext<AC, C>,
+    auth_ctx: &AuthServiceContext<
+        AC,
+        C,
+        SpuStore,
+        PartitionStore,
+        TopicStore,
+        SpgStore,
+        SmartModuleStore,
+        TableFormatStore,
+    >,
 ) -> Result<Status> {
     let (create, topic) = req.parts();
     let name = create.name;
@@ -61,7 +85,7 @@ pub(crate) async fn handle_create_topics_request<AC: AuthContext, C: MetadataIte
     }
 
     // validate topic request
-    let mut status = validate_topic_request::<C>(&name, &topic, &auth_ctx.global_ctx).await;
+    let mut status = validate_topic_request(&name, &topic, &auth_ctx.global_ctx).await;
     if status.is_error() {
         return Ok(status);
     }
@@ -75,10 +99,26 @@ pub(crate) async fn handle_create_topics_request<AC: AuthContext, C: MetadataIte
 }
 
 /// Validate topic, takes advantage of the validation routines inside topic action workflow
-async fn validate_topic_request<C: MetadataItem>(
+async fn validate_topic_request<
+    C: MetadataItem,
+    SpuStore: Store<SpuSpec, C>,
+    PartitionStore: Store<PartitionSpec, C>,
+    TopicStore: Store<TopicSpec, C>,
+    SpgStore: Store<SpuGroupSpec, C>,
+    SmartModuleStore: Store<SmartModuleSpec, C>,
+    TableFormatStore: Store<TableFormatSpec, C>,
+>(
     name: &str,
     topic_spec: &TopicSpec,
-    metadata: &Context<C>,
+    metadata: &Context<
+        C,
+        SpuStore,
+        PartitionStore,
+        TopicStore,
+        SpgStore,
+        SmartModuleStore,
+        TableFormatStore,
+    >,
 ) -> Status {
     debug!(topic_name = %name, "validating topic");
 
@@ -147,7 +187,7 @@ async fn validate_topic_request<C: MetadataItem>(
                     Some(next_state.reason),
                 )
             } else {
-                let next_state = generate_replica_map::<C>(spus, param).await;
+                let next_state = generate_replica_map::<C>(&spus, param).await;
                 trace!("validating, generate replica map topic: {:#?}", next_state);
                 if next_state.resolution.no_resource() {
                     Status::new(
@@ -171,7 +211,7 @@ async fn validate_topic_request<C: MetadataItem>(
                 )
             } else {
                 let next_state =
-                    update_replica_map_for_assigned_topic::<C>(partition_map, spus).await;
+                    update_replica_map_for_assigned_topic::<C>(partition_map, &spus).await;
                 trace!("validating, assign replica map topic: {:#?}", next_state);
                 if next_state.resolution.is_invalid() {
                     Status::new(
@@ -185,7 +225,7 @@ async fn validate_topic_request<C: MetadataItem>(
             }
         }
         ReplicaSpec::Mirror(ref mirror) => {
-            let next_state = validate_mirror_topic_parameter::<K8MetaItem>(mirror);
+            let next_state = validate_mirror_topic_parameter::<C>(mirror);
             trace!("validating, mirror topic: {:#?}", next_state);
             if next_state.resolution.is_invalid() {
                 Status::new(
@@ -194,7 +234,7 @@ async fn validate_topic_request<C: MetadataItem>(
                     Some(next_state.reason),
                 )
             } else {
-                let next_state = generate_replica_map_for_mirror::<K8MetaItem>(mirror, spus).await;
+                let next_state = generate_replica_map_for_mirror::<C>(mirror, &spus).await;
                 trace!("updating, mirror topic: {:#?}", next_state);
                 if next_state.resolution.is_invalid() {
                     Status::new(
@@ -212,8 +252,26 @@ async fn validate_topic_request<C: MetadataItem>(
 
 /// create new topic and wait until all partitions are fully provisioned
 /// if any partitions are not provisioned in time, this will generate error
-async fn process_topic_request<AC: AuthContext, C: MetadataItem>(
-    auth_ctx: &AuthServiceContext<AC, C>,
+async fn process_topic_request<
+    AC: AuthContext,
+    C: MetadataItem,
+    SpuStore: Store<SpuSpec, C>,
+    PartitionStore: Store<PartitionSpec, C>,
+    TopicStore: Store<TopicSpec, C>,
+    SpgStore: Store<SpuGroupSpec, C>,
+    SmartModuleStore: Store<SmartModuleSpec, C>,
+    TableFormatStore: Store<TableFormatSpec, C>,
+>(
+    auth_ctx: &AuthServiceContext<
+        AC,
+        C,
+        SpuStore,
+        PartitionStore,
+        TopicStore,
+        SpgStore,
+        SmartModuleStore,
+        TableFormatStore,
+    >,
     name: String,
     topic_spec: TopicSpec,
 ) -> Status {
@@ -263,7 +321,8 @@ async fn process_topic_request<AC: AuthContext, C: MetadataItem>(
 
         let mut provisioned_count = 0;
 
-        let read_guard = partition_ctx.store().read().await;
+        let store = partition_ctx.store();
+        let read_guard = store.read().await;
         // find partitions owned by topic which are online
         for partition in read_guard.values() {
             if partition.is_owned(topic_uid) && partition.status.is_online() {

@@ -4,18 +4,43 @@ use fluvio_stream_model::core::MetadataItem;
 use tracing::{debug, trace, instrument, info};
 use anyhow::Result;
 
+use fluvio_controlplane_metadata::partition::PartitionSpec;
+use fluvio_controlplane_metadata::spg::SpuGroupSpec;
+use fluvio_controlplane_metadata::spu::SpuSpec;
+use fluvio_controlplane_metadata::tableformat::TableFormatSpec;
+use fluvio_controlplane_metadata::topic::TopicSpec;
+
 use fluvio_sc_schema::Status;
 use fluvio_auth::{AuthContext, InstanceAction};
 use fluvio_controlplane_metadata::smartmodule::{SmartModuleSpec, SmartModulePackageKey};
 use fluvio_controlplane_metadata::extended::SpecExt;
 
 use crate::services::auth::AuthServiceContext;
+use crate::stores::Store;
 
 /// Handler for delete smartmodule request
 #[instrument(skip(name, auth_ctx))]
-pub async fn handle_delete_smartmodule<AC: AuthContext, C: MetadataItem>(
+pub async fn handle_delete_smartmodule<
+    AC: AuthContext,
+    C: MetadataItem,
+    SpuStore: Store<SpuSpec, C>,
+    PartitionStore: Store<PartitionSpec, C>,
+    TopicStore: Store<TopicSpec, C>,
+    SpgStore: Store<SpuGroupSpec, C>,
+    SmartModuleStore: Store<SmartModuleSpec, C>,
+    TableFormatStore: Store<TableFormatSpec, C>,
+>(
     name: String,
-    auth_ctx: &AuthServiceContext<AC, C>,
+    auth_ctx: &AuthServiceContext<
+        AC,
+        C,
+        SpuStore,
+        PartitionStore,
+        TopicStore,
+        SpgStore,
+        SmartModuleStore,
+        TableFormatStore,
+    >,
 ) -> Result<Status> {
     use fluvio_protocol::link::ErrorCode;
 

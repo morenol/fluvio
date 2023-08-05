@@ -4,32 +4,85 @@ pub use common::*;
 
 mod common {
 
-    use std::sync::Arc;
+    use std::{sync::Arc, marker::PhantomData};
     use std::fmt::Debug;
 
     use async_trait::async_trait;
 
     use fluvio_auth::{AuthContext, Authorization, TypeAction, InstanceAction, AuthError};
     use fluvio_socket::FluvioSocket;
-    use fluvio_controlplane_metadata::extended::ObjectType;
+    use fluvio_controlplane_metadata::{
+        extended::ObjectType, spu::SpuSpec, partition::PartitionSpec, topic::TopicSpec,
+        tableformat::TableFormatSpec, smartmodule::SmartModuleSpec, spg::SpuGroupSpec,
+    };
     use fluvio_stream_model::core::MetadataItem;
 
-    use crate::core::SharedContext;
+    use crate::{core::SharedContext, stores::Store};
 
     /// SC global context with authorization
     /// auth is trait object which contains global auth auth policy
     #[derive(Clone, Debug)]
-    pub struct AuthGlobalContext<A, C: MetadataItem> {
-        pub global_ctx: SharedContext<C>,
+    pub struct AuthGlobalContext<
+        A,
+        C: MetadataItem,
+        SpuStore: Store<SpuSpec, C>,
+        PartitionStore: Store<PartitionSpec, C>,
+        TopicStore: Store<TopicSpec, C>,
+        SpgStore: Store<SpuGroupSpec, C>,
+        SmartModuleStore: Store<SmartModuleSpec, C>,
+        TableFormatStore: Store<TableFormatSpec, C>,
+    > {
+        pub global_ctx: SharedContext<
+            C,
+            SpuStore,
+            PartitionStore,
+            TopicStore,
+            SpgStore,
+            SmartModuleStore,
+            TableFormatStore,
+        >,
         pub auth: Arc<A>,
+        pub phantom: std::marker::PhantomData<C>,
     }
 
-    impl<A, C> AuthGlobalContext<A, C>
-    where
-        C: MetadataItem,
+    impl<
+            A,
+            C: MetadataItem,
+            SpuStore: Store<SpuSpec, C>,
+            PartitionStore: Store<PartitionSpec, C>,
+            TopicStore: Store<TopicSpec, C>,
+            SpgStore: Store<SpuGroupSpec, C>,
+            SmartModuleStore: Store<SmartModuleSpec, C>,
+            TableFormatStore: Store<TableFormatSpec, C>,
+        >
+        AuthGlobalContext<
+            A,
+            C,
+            SpuStore,
+            PartitionStore,
+            TopicStore,
+            SpgStore,
+            SmartModuleStore,
+            TableFormatStore,
+        >
     {
-        pub fn new(global_ctx: SharedContext<C>, auth: Arc<A>) -> Self {
-            Self { global_ctx, auth }
+        pub fn new(
+            global_ctx: SharedContext<
+                C,
+                SpuStore,
+                PartitionStore,
+                TopicStore,
+                SpgStore,
+                SmartModuleStore,
+                TableFormatStore,
+            >,
+            auth: Arc<A>,
+        ) -> Self {
+            Self {
+                global_ctx,
+                auth,
+                phantom: PhantomData,
+            }
         }
     }
 
@@ -83,17 +136,67 @@ mod common {
     /// Auth Service Context, this hold individual context that is enough enforce auth
     /// for this service context
     #[derive(Debug, Clone)]
-    pub struct AuthServiceContext<AC, C: MetadataItem> {
-        pub global_ctx: SharedContext<C>,
+    pub struct AuthServiceContext<
+        AC,
+        C: MetadataItem,
+        SpuStore: Store<SpuSpec, C>,
+        PartitionStore: Store<PartitionSpec, C>,
+        TopicStore: Store<TopicSpec, C>,
+        SpgStore: Store<SpuGroupSpec, C>,
+        SmartModuleStore: Store<SmartModuleSpec, C>,
+        TableFormatStore: Store<TableFormatSpec, C>,
+    > {
+        pub global_ctx: SharedContext<
+            C,
+            SpuStore,
+            PartitionStore,
+            TopicStore,
+            SpgStore,
+            SmartModuleStore,
+            TableFormatStore,
+        >,
         pub auth: AC,
+        pub phantom: std::marker::PhantomData<C>,
     }
 
-    impl<AC, C> AuthServiceContext<AC, C>
-    where
-        C: MetadataItem,
+    impl<
+            AC,
+            C: MetadataItem,
+            SpuStore: Store<SpuSpec, C>,
+            PartitionStore: Store<PartitionSpec, C>,
+            TopicStore: Store<TopicSpec, C>,
+            SpgStore: Store<SpuGroupSpec, C>,
+            SmartModuleStore: Store<SmartModuleSpec, C>,
+            TableFormatStore: Store<TableFormatSpec, C>,
+        >
+        AuthServiceContext<
+            AC,
+            C,
+            SpuStore,
+            PartitionStore,
+            TopicStore,
+            SpgStore,
+            SmartModuleStore,
+            TableFormatStore,
+        >
     {
-        pub fn new(global_ctx: SharedContext<C>, auth: AC) -> Self {
-            Self { global_ctx, auth }
+        pub fn new(
+            global_ctx: SharedContext<
+                C,
+                SpuStore,
+                PartitionStore,
+                TopicStore,
+                SpgStore,
+                SmartModuleStore,
+                TableFormatStore,
+            >,
+            auth: AC,
+        ) -> Self {
+            Self {
+                global_ctx,
+                auth,
+                phantom: PhantomData,
+            }
         }
     }
 }

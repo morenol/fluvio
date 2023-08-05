@@ -4,6 +4,11 @@
 //! Converts SmartModule API request into KV request and sends to KV store for processing.
 //!
 
+use fluvio_controlplane_metadata::partition::PartitionSpec;
+use fluvio_controlplane_metadata::spg::SpuGroupSpec;
+use fluvio_controlplane_metadata::spu::SpuSpec;
+use fluvio_controlplane_metadata::tableformat::TableFormatSpec;
+use fluvio_controlplane_metadata::topic::TopicSpec;
 use fluvio_stream_model::core::MetadataItem;
 use tracing::{info, trace, debug, instrument};
 use anyhow::{anyhow, Result};
@@ -17,12 +22,31 @@ use fluvio_auth::{AuthContext, TypeAction};
 
 use crate::core::Context;
 use crate::services::auth::AuthServiceContext;
+use crate::stores::Store;
 
 /// Handler for smartmodule request
 #[instrument(skip(req, auth_ctx))]
-pub async fn handle_create_smartmodule_request<AC: AuthContext, C: MetadataItem>(
+pub async fn handle_create_smartmodule_request<
+    AC: AuthContext,
+    C: MetadataItem,
+    SpuStore: Store<SpuSpec, C>,
+    PartitionStore: Store<PartitionSpec, C>,
+    TopicStore: Store<TopicSpec, C>,
+    SpgStore: Store<SpuGroupSpec, C>,
+    SmartModuleStore: Store<SmartModuleSpec, C>,
+    TableFormatStore: Store<TableFormatSpec, C>,
+>(
     req: CreateRequest<SmartModuleSpec>,
-    auth_ctx: &AuthServiceContext<AC, C>,
+    auth_ctx: &AuthServiceContext<
+        AC,
+        C,
+        SpuStore,
+        PartitionStore,
+        TopicStore,
+        SpgStore,
+        SmartModuleStore,
+        TableFormatStore,
+    >,
 ) -> Result<Status> {
     let (create, spec) = req.parts();
     let name = create.name;
@@ -54,8 +78,24 @@ pub async fn handle_create_smartmodule_request<AC: AuthContext, C: MetadataItem>
 
 /// Process custom smartmodule, converts smartmodule spec to K8 and sends to KV store
 #[instrument(skip(ctx, name, smartmodule_spec))]
-async fn process_smartmodule_request<C: MetadataItem>(
-    ctx: &Context<C>,
+async fn process_smartmodule_request<
+    C: MetadataItem,
+    SpuStore: Store<SpuSpec, C>,
+    PartitionStore: Store<PartitionSpec, C>,
+    TopicStore: Store<TopicSpec, C>,
+    SpgStore: Store<SpuGroupSpec, C>,
+    SmartModuleStore: Store<SmartModuleSpec, C>,
+    TableFormatStore: Store<TableFormatSpec, C>,
+>(
+    ctx: &Context<
+        C,
+        SpuStore,
+        PartitionStore,
+        TopicStore,
+        SpgStore,
+        SmartModuleStore,
+        TableFormatStore,
+    >,
     name: String,
     smartmodule_spec: SmartModuleSpec,
 ) -> Status {

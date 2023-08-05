@@ -3,6 +3,10 @@
 //!
 //! Reconcile Topics
 
+use fluvio_controlplane_metadata::smartmodule::SmartModuleSpec;
+use fluvio_controlplane_metadata::spg::SpuGroupSpec;
+use fluvio_controlplane_metadata::spu::SpuSpec;
+use fluvio_controlplane_metadata::tableformat::TableFormatSpec;
 use fluvio_stream_model::core::MetadataItem;
 use fluvio_stream_model::store::ChangeListener;
 use fluvio_stream_model::store::k8::K8MetaItem;
@@ -12,26 +16,50 @@ use tracing::instrument;
 use fluvio_future::task::spawn;
 
 use crate::core::SharedContext;
+use crate::stores::Store;
 use crate::stores::topic::TopicSpec;
 use crate::stores::partition::PartitionSpec;
-use crate::stores::StoreContext;
 
 use super::reducer::TopicReducer;
 
 #[derive(Debug)]
-pub struct TopicController<C: MetadataItem = K8MetaItem> {
-    topics: StoreContext<TopicSpec, C>,
-    partitions: StoreContext<PartitionSpec, C>,
+pub struct TopicController<
+    TopicStore: Store<TopicSpec, C>,
+    PartitionStore: Store<PartitionSpec, C>,
+    C = K8MetaItem,
+> where
+    C: MetadataItem,
+{
+    topics: TopicStore,
+    partitions: PartitionStore,
     reducer: TopicReducer<C>,
 }
 
-impl<C> TopicController<C>
-where
-    C: MetadataItem + 'static,
-    C::UId: Send + Sync,
+impl<
+        C: MetadataItem + 'static,
+        TopicStore: Store<TopicSpec, C> + Send + Sync + 'static,
+        PartitionStore: Store<PartitionSpec, C> + Send + Sync + 'static,
+    > TopicController<TopicStore, PartitionStore, C>
 {
     /// streaming coordinator controller constructor
-    pub fn start(ctx: SharedContext<C>) {
+    pub fn start<
+        SpuStore: Store<SpuSpec, C>,
+        SpgStore: Store<SpuGroupSpec, C>,
+        SmartModuleStore: Store<SmartModuleSpec, C>,
+        TableFormatStore: Store<TableFormatSpec, C>,
+    >(
+        ctx: SharedContext<
+            C,
+            SpuStore,
+            PartitionStore,
+            TopicStore,
+            SpgStore,
+            SmartModuleStore,
+            TableFormatStore,
+        >,
+    ) where
+        C::UId: Send + Sync,
+    {
         let topics = ctx.topics().clone();
         let partitions = ctx.partitions().clone();
 
@@ -49,7 +77,11 @@ where
     }
 }
 
-impl<C: MetadataItem> TopicController<C> {
+impl<C, TopicStore: Store<TopicSpec, C>, PartitionStore: Store<PartitionSpec, C>>
+    TopicController<TopicStore, PartitionStore, C>
+where
+    C: MetadataItem,
+{
     #[instrument(name = "TopicController", skip(self))]
     async fn dispatch_loop(mut self) {
         use std::time::Duration;

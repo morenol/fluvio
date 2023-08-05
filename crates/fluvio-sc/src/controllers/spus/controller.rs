@@ -1,9 +1,15 @@
 //!
 //! # Spu Controller
 
+use std::marker::PhantomData;
 use std::time::Duration;
 use std::io::Error as IoError;
 
+use fluvio_controlplane_metadata::partition::PartitionSpec;
+use fluvio_controlplane_metadata::smartmodule::SmartModuleSpec;
+use fluvio_controlplane_metadata::spg::SpuGroupSpec;
+use fluvio_controlplane_metadata::tableformat::TableFormatSpec;
+use fluvio_controlplane_metadata::topic::TopicSpec;
 use fluvio_future::timer::sleep;
 use fluvio_stream_model::core::MetadataItem;
 use tracing::{debug, info, error, trace, instrument};
@@ -11,23 +17,43 @@ use tracing::{debug, info, error, trace, instrument};
 use fluvio_future::task::spawn;
 
 use crate::core::SharedContext;
-use crate::stores::StoreContext;
+use crate::stores::Store;
 use crate::stores::spu::*;
 
 /// Reconcile SPU health status with Meta data
 /// if SPU has not send heart beat within a period, it is considered down
-pub struct SpuController<C: MetadataItem> {
-    spus: StoreContext<SpuSpec, C>,
+pub struct SpuController<C: MetadataItem, SpuStore: Store<SpuSpec, C>> {
+    spus: SpuStore,
     health_check: SharedHealthCheck,
     counter: u64, // how many time we have been sync
+    phantom: std::marker::PhantomData<C>,
 }
 
-impl<C: MetadataItem + 'static> SpuController<C> {
-    pub fn start(ctx: SharedContext<C>) {
+impl<C: MetadataItem + 'static, SpuStore: Store<SpuSpec, C> + Send + Sync + 'static>
+    SpuController<C, SpuStore>
+{
+    pub fn start<
+        PartitionStore: Store<PartitionSpec, C>,
+        TopicStore: Store<TopicSpec, C>,
+        SpgStore: Store<SpuGroupSpec, C>,
+        SmartModuleStore: Store<SmartModuleSpec, C>,
+        TableFormatStore: Store<TableFormatSpec, C>,
+    >(
+        ctx: SharedContext<
+            C,
+            SpuStore,
+            PartitionStore,
+            TopicStore,
+            SpgStore,
+            SmartModuleStore,
+            TableFormatStore,
+        >,
+    ) {
         let controller = Self {
             spus: ctx.spus().clone(),
             health_check: ctx.health().clone(),
             counter: 0,
+            phantom: PhantomData,
         };
 
         info!("starting spu controller");

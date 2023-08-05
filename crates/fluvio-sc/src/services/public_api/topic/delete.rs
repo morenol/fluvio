@@ -10,17 +10,38 @@ use std::io::{Error, ErrorKind};
 
 use fluvio_protocol::link::ErrorCode;
 use fluvio_sc_schema::Status;
-use fluvio_controlplane_metadata::topic::TopicSpec;
+use fluvio_controlplane_metadata::{
+    topic::TopicSpec, spu::SpuSpec, partition::PartitionSpec, spg::SpuGroupSpec,
+    smartmodule::SmartModuleSpec, tableformat::TableFormatSpec,
+};
 use fluvio_auth::{AuthContext, InstanceAction};
 use fluvio_controlplane_metadata::extended::SpecExt;
 
-use crate::services::auth::AuthServiceContext;
+use crate::{services::auth::AuthServiceContext, stores::Store};
 
 /// Handler for delete topic request
 #[instrument(skip(topic_name, auth_ctx))]
-pub async fn handle_delete_topic<AC: AuthContext, C: MetadataItem>(
+pub async fn handle_delete_topic<
+    AC: AuthContext,
+    C: MetadataItem,
+    SpuStore: Store<SpuSpec, C>,
+    PartitionStore: Store<PartitionSpec, C>,
+    TopicStore: Store<TopicSpec, C>,
+    SpgStore: Store<SpuGroupSpec, C>,
+    SmartModuleStore: Store<SmartModuleSpec, C>,
+    TableFormatStore: Store<TableFormatSpec, C>,
+>(
     topic_name: String,
-    auth_ctx: &AuthServiceContext<AC, C>,
+    auth_ctx: &AuthServiceContext<
+        AC,
+        C,
+        SpuStore,
+        PartitionStore,
+        TopicStore,
+        SpgStore,
+        SmartModuleStore,
+        TableFormatStore,
+    >,
 ) -> Result<Status, Error> {
     info!(%topic_name, "Deleting topic");
 

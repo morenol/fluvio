@@ -1,5 +1,6 @@
 use std::io::{Error, ErrorKind};
 
+use fluvio_controlplane_metadata::smartmodule::SmartModuleSpec;
 use fluvio_stream_model::core::MetadataItem;
 use tracing::{debug, trace, instrument};
 use anyhow::Result;
@@ -10,12 +11,36 @@ use fluvio_auth::{AuthContext, TypeAction};
 use fluvio_controlplane_metadata::store::KeyFilter;
 use fluvio_controlplane_metadata::extended::SpecExt;
 
+use fluvio_controlplane_metadata::partition::PartitionSpec;
+use fluvio_controlplane_metadata::spu::SpuSpec;
+use fluvio_controlplane_metadata::tableformat::TableFormatSpec;
+use fluvio_controlplane_metadata::topic::TopicSpec;
+
+use crate::stores::Store;
 use crate::services::auth::AuthServiceContext;
 
 #[instrument(skip(filters, auth_ctx))]
-pub async fn handle_fetch_spu_groups_request<AC: AuthContext, C: MetadataItem>(
+pub async fn handle_fetch_spu_groups_request<
+    AC: AuthContext,
+    C: MetadataItem,
+    SpuStore: Store<SpuSpec, C>,
+    PartitionStore: Store<PartitionSpec, C>,
+    TopicStore: Store<TopicSpec, C>,
+    SpgStore: Store<SpuGroupSpec, C>,
+    SmartModuleStore: Store<SmartModuleSpec, C>,
+    TableFormatStore: Store<TableFormatSpec, C>,
+>(
     filters: ListFilters,
-    auth_ctx: &AuthServiceContext<AC, C>,
+    auth_ctx: &AuthServiceContext<
+        AC,
+        C,
+        SpuStore,
+        PartitionStore,
+        TopicStore,
+        SpgStore,
+        SmartModuleStore,
+        TableFormatStore,
+    >,
 ) -> Result<ListResponse<SpuGroupSpec>> {
     debug!("fetching spu groups");
 

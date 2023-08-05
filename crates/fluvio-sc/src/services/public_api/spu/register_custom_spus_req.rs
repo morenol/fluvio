@@ -3,9 +3,15 @@
 //!
 //! Converts Custom Spu API request into KV request and sends to KV store for processing.
 //!
+use std::marker::PhantomData;
+
+use fluvio_controlplane_metadata::partition::PartitionSpec;
+use fluvio_controlplane_metadata::smartmodule::SmartModuleSpec;
+use fluvio_controlplane_metadata::spg::SpuGroupSpec;
+use fluvio_controlplane_metadata::tableformat::TableFormatSpec;
+use fluvio_controlplane_metadata::topic::TopicSpec;
 use fluvio_stream_model::core::MetadataItem;
 use tracing::{debug, info, trace, instrument};
-use std::io::Error as IoError;
 
 use fluvio_protocol::link::ErrorCode;
 use fluvio_sc_schema::Status;
@@ -18,19 +24,64 @@ use fluvio_controlplane_metadata::extended::SpecExt;
 use crate::core::SharedContext;
 use crate::services::auth::AuthServiceContext;
 use crate::stores::spu::SpuLocalStorePolicy;
+use crate::stores::Store;
 
-pub struct RegisterCustomSpu<C: MetadataItem> {
-    ctx: SharedContext<C>,
+pub struct RegisterCustomSpu<
+    C: MetadataItem,
+    SpuStore: Store<SpuSpec, C>,
+    PartitionStore: Store<PartitionSpec, C>,
+    TopicStore: Store<TopicSpec, C>,
+    SpgStore: Store<SpuGroupSpec, C>,
+    SmartModuleStore: Store<SmartModuleSpec, C>,
+    TableFormatStore: Store<TableFormatSpec, C>,
+> {
+    ctx: SharedContext<
+        C,
+        SpuStore,
+        PartitionStore,
+        TopicStore,
+        SpgStore,
+        SmartModuleStore,
+        TableFormatStore,
+    >,
     name: String,
     spec: CustomSpuSpec,
+    phantom: PhantomData<C>,
 }
 
-impl<C: MetadataItem> RegisterCustomSpu<C> {
+impl<
+        C: MetadataItem,
+        SpuStore: Store<SpuSpec, C>,
+        PartitionStore: Store<PartitionSpec, C>,
+        TopicStore: Store<TopicSpec, C>,
+        SpgStore: Store<SpuGroupSpec, C>,
+        SmartModuleStore: Store<SmartModuleSpec, C>,
+        TableFormatStore: Store<TableFormatSpec, C>,
+    >
+    RegisterCustomSpu<
+        C,
+        SpuStore,
+        PartitionStore,
+        TopicStore,
+        SpgStore,
+        SmartModuleStore,
+        TableFormatStore,
+    >
+{
     /// Handler for create spus request
     #[instrument(skip(req, auth_ctx))]
     pub async fn handle_register_custom_spu_request<AC: AuthContext>(
         req: CreateRequest<CustomSpuSpec>,
-        auth_ctx: &AuthServiceContext<AC, C>,
+        auth_ctx: &AuthServiceContext<
+            AC,
+            C,
+            SpuStore,
+            PartitionStore,
+            TopicStore,
+            SpgStore,
+            SmartModuleStore,
+            TableFormatStore,
+        >,
     ) -> Status {
         let (create, spec) = req.parts();
         let name = create.name;
@@ -59,6 +110,7 @@ impl<C: MetadataItem> RegisterCustomSpu<C> {
             name,
             spec,
             ctx: auth_ctx.global_ctx.clone(),
+            phantom: PhantomData,
         };
 
         // validate custom-spu request
@@ -117,7 +169,7 @@ impl<C: MetadataItem> RegisterCustomSpu<C> {
     }
 
     /// register custom spu by convert into spu spec since custom spec is just subset
-    async fn register_custom_spu(&self) -> Result<(), IoError> {
+    async fn register_custom_spu(&self) -> std::io::Result<()> {
         let spu_spec: SpuSpec = self.spec.clone().into();
 
         self.ctx

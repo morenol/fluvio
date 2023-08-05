@@ -12,7 +12,7 @@ use fluvio_future::task::spawn;
 use fluvio_controlplane_metadata::core::MetadataItem;
 use fluvio_controlplane_metadata::store::k8::K8MetaItem;
 
-use crate::stores::StoreContext;
+use crate::stores::Store;
 use crate::stores::partition::PartitionSpec;
 use crate::stores::spu::SpuSpec;
 
@@ -20,19 +20,26 @@ use super::reducer::PartitionReducer;
 
 /// Handles Partition election
 #[derive(Debug)]
-pub struct PartitionController<C: MetadataItem = K8MetaItem> {
-    partitions: StoreContext<PartitionSpec, C>,
-    spus: StoreContext<SpuSpec, C>,
+pub struct PartitionController<SpuStore, PartitionStore, C = K8MetaItem>
+where
+    C: MetadataItem,
+    SpuStore: Store<SpuSpec, C>,
+    PartitionStore: Store<PartitionSpec, C>,
+{
+    partitions: PartitionStore,
+    spus: SpuStore,
     reducer: PartitionReducer<C>,
 }
 
-impl<C> PartitionController<C>
+impl<S, P, C> PartitionController<S, P, C>
 where
     C: MetadataItem + 'static,
+    S: Store<SpuSpec, C> + 'static + Send + Sync,
+    P: Store<PartitionSpec, C> + 'static + Send + Sync,
 {
-    pub fn start(partitions: StoreContext<PartitionSpec, C>, spus: StoreContext<SpuSpec, C>) {
+    pub fn start(partitions: P, spus: S) {
         let controller = Self {
-            reducer: PartitionReducer::new(partitions.store().clone(), spus.store().clone()),
+            reducer: PartitionReducer::<C>::new(partitions.store().clone(), spus.store().clone()),
             partitions,
             spus,
         };
@@ -41,9 +48,11 @@ where
     }
 }
 
-impl<C> PartitionController<C>
+impl<S, P, C> PartitionController<S, P, C>
 where
     C: MetadataItem + Send + Sync,
+    S: Store<SpuSpec, C> + Send + Sync,
+    P: Store<PartitionSpec, C> + Send + Sync,
 {
     #[instrument(skip(self), name = "PartitionController")]
     async fn dispatch_loop(mut self) {

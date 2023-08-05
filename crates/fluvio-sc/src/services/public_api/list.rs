@@ -17,13 +17,31 @@ use fluvio_sc_schema::{
 };
 use fluvio_auth::AuthContext;
 
-use crate::services::auth::AuthServiceContext;
+use crate::{services::auth::AuthServiceContext, stores::Store};
 use super::smartmodule::fetch_smart_modules;
 
 #[instrument(skip(request, auth_ctx))]
-pub async fn handle_list_request<AC: AuthContext, C: MetadataItem>(
+pub async fn handle_list_request<
+    AC: AuthContext,
+    C: MetadataItem,
+    SpuStore: Store<SpuSpec, C>,
+    PartitionStore: Store<PartitionSpec, C>,
+    TopicStore: Store<TopicSpec, C>,
+    SpgStore: Store<SpuGroupSpec, C>,
+    SmartModuleStore: Store<SmartModuleSpec, C>,
+    TableFormatStore: Store<TableFormatSpec, C>,
+>(
     request: RequestMessage<ObjectApiListRequest>,
-    auth_ctx: &AuthServiceContext<AC, C>,
+    auth_ctx: &AuthServiceContext<
+        AC,
+        C,
+        SpuStore,
+        PartitionStore,
+        TopicStore,
+        SpgStore,
+        SmartModuleStore,
+        TableFormatStore,
+    >,
 ) -> Result<ResponseMessage<ObjectApiListResponse>> {
     let (header, req) = request.get_header_request();
     debug!("list header: {:#?}, request: {:#?}", header, req);
@@ -88,9 +106,14 @@ mod fetch {
     use std::io::{Error, ErrorKind};
 
     use fluvio_controlplane_metadata::core::Spec;
+    use fluvio_controlplane_metadata::partition::PartitionSpec;
+    use fluvio_controlplane_metadata::smartmodule::SmartModuleSpec;
+    use fluvio_controlplane_metadata::spg::SpuGroupSpec;
+    use fluvio_controlplane_metadata::spu::SpuSpec;
+    use fluvio_controlplane_metadata::tableformat::TableFormatSpec;
+    use fluvio_controlplane_metadata::topic::TopicSpec;
     use fluvio_protocol::{Decoder, Encoder};
     use fluvio_sc_schema::AdminSpec;
-    use fluvio_stream_dispatcher::store::StoreContext;
     use fluvio_stream_model::core::MetadataItem;
     use tracing::{debug, trace, instrument};
 
@@ -101,12 +124,33 @@ mod fetch {
     use fluvio_controlplane_metadata::store::KeyFilter;
 
     use crate::services::auth::AuthServiceContext;
+    use crate::stores::Store;
 
     #[instrument(skip(filters, auth_ctx))]
-    pub async fn handle_fetch_request<AC: AuthContext, C: MetadataItem, S>(
+    pub async fn handle_fetch_request<
+        AC: AuthContext,
+        S,
+        C: MetadataItem,
+        SpuStore: Store<SpuSpec, C>,
+        PartitionStore: Store<PartitionSpec, C>,
+        TopicStore: Store<TopicSpec, C>,
+        SpgStore: Store<SpuGroupSpec, C>,
+        SmartModuleStore: Store<SmartModuleSpec, C>,
+        TableFormatStore: Store<TableFormatSpec, C>,
+        SS: Store<S, C>,
+    >(
         filters: ListFilters,
-        auth_ctx: &AuthServiceContext<AC, C>,
-        object_ctx: &StoreContext<S, C>,
+        auth_ctx: &AuthServiceContext<
+            AC,
+            C,
+            SpuStore,
+            PartitionStore,
+            TopicStore,
+            SpgStore,
+            SmartModuleStore,
+            TableFormatStore,
+        >,
+        object_ctx: &SS,
     ) -> Result<ListResponse<S>, Error>
     where
         AC: AuthContext,
@@ -131,7 +175,8 @@ mod fetch {
             return Err(Error::new(ErrorKind::Interrupted, "authorization io error"));
         }
 
-        let reader = object_ctx.store().read().await;
+        let store = object_ctx.store();
+        let reader = store.read().await;
         let objects: Vec<Metadata<S>> = reader
             .values()
             .filter_map(|value| {

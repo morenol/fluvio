@@ -1,3 +1,4 @@
+use std::marker::PhantomData;
 use std::sync::Arc;
 
 use fluvio_stream_model::core::MetadataItem;
@@ -22,14 +23,32 @@ use fluvio_controlplane_metadata::smartmodule::SmartModuleSpec;
 use fluvio_controlplane_metadata::tableformat::TableFormatSpec;
 
 use crate::services::auth::AuthServiceContext;
-use crate::stores::StoreContext;
+use crate::stores::Store;
 use fluvio_controlplane_metadata::spg::SpuGroupSpec;
 
 /// handle watch request by spawning watch controller for each store
 #[instrument(skip(request, auth_ctx, sink, end_event))]
-pub fn handle_watch_request<AC, C: MetadataItem + 'static>(
+pub fn handle_watch_request<
+    AC,
+    C: MetadataItem + 'static,
+    SpuStore: Store<SpuSpec, C> + Send + 'static,
+    PartitionStore: Store<PartitionSpec, C> + Send + 'static,
+    TopicStore: Store<TopicSpec, C> + Send + 'static,
+    SpgStore: Store<SpuGroupSpec, C> + Send + 'static,
+    SmartModuleStore: Store<SmartModuleSpec, C> + Send + 'static,
+    TableFormatStore: Store<TableFormatSpec, C> + Send + 'static,
+>(
     request: RequestMessage<ObjectApiWatchRequest>,
-    auth_ctx: &AuthServiceContext<AC, C>,
+    auth_ctx: &AuthServiceContext<
+        AC,
+        C,
+        SpuStore,
+        PartitionStore,
+        TopicStore,
+        SpgStore,
+        SmartModuleStore,
+        TableFormatStore,
+    >,
     sink: ExclusiveFlvSink,
     end_event: Arc<StickyEvent>,
 ) -> Result<()> {
@@ -37,7 +56,7 @@ pub fn handle_watch_request<AC, C: MetadataItem + 'static>(
     debug!("handling watch header: {:#?}, request: {:#?}", header, req);
 
     if (req.downcast()? as Option<WatchRequest<TopicSpec>>).is_some() {
-        WatchController::<TopicSpec, C>::update(
+        WatchController::<TopicSpec, C, TopicStore>::update(
             sink,
             end_event,
             auth_ctx.global_ctx.topics().clone(),
@@ -45,7 +64,7 @@ pub fn handle_watch_request<AC, C: MetadataItem + 'static>(
             false,
         )
     } else if (req.downcast()? as Option<WatchRequest<SpuSpec>>).is_some() {
-        WatchController::<SpuSpec, C>::update(
+        WatchController::<SpuSpec, C, SpuStore>::update(
             sink,
             end_event,
             auth_ctx.global_ctx.spus().clone(),
@@ -53,7 +72,7 @@ pub fn handle_watch_request<AC, C: MetadataItem + 'static>(
             false,
         )
     } else if (req.downcast()? as Option<WatchRequest<SpuGroupSpec>>).is_some() {
-        WatchController::<SpuGroupSpec, C>::update(
+        WatchController::<SpuGroupSpec, C, SpgStore>::update(
             sink,
             end_event,
             auth_ctx.global_ctx.spgs().clone(),
@@ -61,7 +80,7 @@ pub fn handle_watch_request<AC, C: MetadataItem + 'static>(
             false,
         )
     } else if (req.downcast()? as Option<WatchRequest<PartitionSpec>>).is_some() {
-        WatchController::<PartitionSpec, C>::update(
+        WatchController::<PartitionSpec, C, PartitionStore>::update(
             sink,
             end_event,
             auth_ctx.global_ctx.partitions().clone(),
@@ -69,7 +88,7 @@ pub fn handle_watch_request<AC, C: MetadataItem + 'static>(
             false,
         )
     } else if let Some(req) = req.downcast()? as Option<WatchRequest<SmartModuleSpec>> {
-        WatchController::<SmartModuleSpec, C>::update(
+        WatchController::<SmartModuleSpec, C, SmartModuleStore>::update(
             sink,
             end_event,
             auth_ctx.global_ctx.smartmodules().clone(),
@@ -77,7 +96,7 @@ pub fn handle_watch_request<AC, C: MetadataItem + 'static>(
             req.summary,
         )
     } else if (req.downcast()? as Option<WatchRequest<TableFormatSpec>>).is_some() {
-        WatchController::<TableFormatSpec, C>::update(
+        WatchController::<TableFormatSpec, C, TableFormatStore>::update(
             sink,
             end_event,
             auth_ctx.global_ctx.tableformats().clone(),
@@ -93,27 +112,29 @@ pub fn handle_watch_request<AC, C: MetadataItem + 'static>(
 }
 
 /// Watch controller for each object.  Note that return type may or not be the same as the object hence two separate spec
-struct WatchController<S: AdminSpec, C: MetadataItem> {
+struct WatchController<S: AdminSpec, C: MetadataItem, ST: Store<S, C>> {
     response_sink: ExclusiveFlvSink,
-    store: StoreContext<S, C>,
+    store: ST,
     header: RequestHeader,
     summary: bool,
     end_event: Arc<StickyEvent>,
+    _phantom: PhantomData<(S, C)>,
 }
 
-impl<S, C> WatchController<S, C>
+impl<S, C, ST> WatchController<S, C, ST>
 where
     C: MetadataItem + 'static,
     S: AdminSpec + 'static,
     S: Encoder + Decoder + Send + Sync,
     S::Status: Encoder + Decoder + Send + Sync,
     S::IndexKey: ToString + Send + Sync,
+    ST: Store<S, C> + Send + 'static,
 {
     /// start watch controller
     fn update(
         response_sink: ExclusiveFlvSink,
         end_event: Arc<StickyEvent>,
-        store: StoreContext<S, C>,
+        store: ST,
         header: RequestHeader,
         summary: bool,
     ) {
@@ -125,6 +146,7 @@ where
             header,
             end_event,
             summary,
+            _phantom: PhantomData,
         };
 
         spawn(controller.dispatch_loop());

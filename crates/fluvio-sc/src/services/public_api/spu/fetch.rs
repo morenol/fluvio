@@ -1,3 +1,4 @@
+use fluvio_controlplane_metadata::spg::SpuGroupSpec;
 use fluvio_stream_model::core::MetadataItem;
 use tracing::{trace, debug, instrument};
 use anyhow::{anyhow, Result};
@@ -8,13 +9,36 @@ use fluvio_sc_schema::customspu::CustomSpuSpec;
 use fluvio_auth::{AuthContext, TypeAction};
 use fluvio_controlplane_metadata::store::KeyFilter;
 use fluvio_controlplane_metadata::extended::SpecExt;
+use fluvio_controlplane_metadata::partition::PartitionSpec;
+use fluvio_controlplane_metadata::tableformat::TableFormatSpec;
+use fluvio_controlplane_metadata::topic::TopicSpec;
+use fluvio_controlplane_metadata::smartmodule::SmartModuleSpec;
 
 use crate::services::auth::AuthServiceContext;
+use crate::stores::Store;
 
 #[instrument(skip(filters, auth_ctx))]
-pub async fn handle_fetch_custom_spu_request<AC: AuthContext, C: MetadataItem>(
+pub async fn handle_fetch_custom_spu_request<
+    AC: AuthContext,
+    C: MetadataItem,
+    SpuStore: Store<SpuSpec, C>,
+    PartitionStore: Store<PartitionSpec, C>,
+    TopicStore: Store<TopicSpec, C>,
+    SpgStore: Store<SpuGroupSpec, C>,
+    SmartModuleStore: Store<SmartModuleSpec, C>,
+    TableFormatStore: Store<TableFormatSpec, C>,
+>(
     filters: ListFilters,
-    auth_ctx: &AuthServiceContext<AC, C>,
+    auth_ctx: &AuthServiceContext<
+        AC,
+        C,
+        SpuStore,
+        PartitionStore,
+        TopicStore,
+        SpgStore,
+        SmartModuleStore,
+        TableFormatStore,
+    >,
 ) -> Result<ListResponse<CustomSpuSpec>> {
     debug!("fetching custom spu list");
 
@@ -60,9 +84,27 @@ pub async fn handle_fetch_custom_spu_request<AC: AuthContext, C: MetadataItem>(
 }
 
 #[instrument(skip(filters, auth_ctx))]
-pub async fn handle_fetch_spus_request<AC: AuthContext, C: MetadataItem>(
+pub async fn handle_fetch_spus_request<
+    AC: AuthContext,
+    C: MetadataItem,
+    SpuStore: Store<SpuSpec, C>,
+    PartitionStore: Store<PartitionSpec, C>,
+    TopicStore: Store<TopicSpec, C>,
+    SpgStore: Store<SpuGroupSpec, C>,
+    SmartModuleStore: Store<SmartModuleSpec, C>,
+    TableFormatStore: Store<TableFormatSpec, C>,
+>(
     filters: ListFilters,
-    auth_ctx: &AuthServiceContext<AC, C>,
+    auth_ctx: &AuthServiceContext<
+        AC,
+        C,
+        SpuStore,
+        PartitionStore,
+        TopicStore,
+        SpgStore,
+        SmartModuleStore,
+        TableFormatStore,
+    >,
 ) -> Result<ListResponse<SpuSpec>> {
     debug!("fetching spu list");
 

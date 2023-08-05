@@ -5,6 +5,7 @@
 //! and send K8 a delete message.
 //!
 
+use fluvio_controlplane_metadata::partition::PartitionSpec;
 use fluvio_protocol::link::ErrorCode;
 use fluvio_stream_model::core::MetadataItem;
 use tracing::{instrument, trace, debug, error};
@@ -12,7 +13,7 @@ use anyhow::Result;
 
 use fluvio_controlplane_metadata::smartmodule::SmartModuleSpec;
 use fluvio_controlplane_metadata::spg::SpuGroupSpec;
-use fluvio_controlplane_metadata::spu::CustomSpuSpec;
+use fluvio_controlplane_metadata::spu::{CustomSpuSpec, SpuSpec};
 use fluvio_controlplane_metadata::tableformat::TableFormatSpec;
 use fluvio_controlplane_metadata::topic::TopicSpec;
 use fluvio_protocol::api::{RequestMessage, ResponseMessage};
@@ -21,12 +22,31 @@ use fluvio_sc_schema::objects::{ObjectApiDeleteRequest, DeleteRequest};
 use fluvio_auth::AuthContext;
 
 use crate::services::auth::AuthServiceContext;
+use crate::stores::Store;
 
 /// Handler for delete topic request
 #[instrument(skip(request, auth_ctx))]
-pub async fn handle_delete_request<AC: AuthContext, C: MetadataItem>(
+pub async fn handle_delete_request<
+    AC: AuthContext,
+    C: MetadataItem,
+    SpuStore: Store<SpuSpec, C>,
+    PartitionStore: Store<PartitionSpec, C>,
+    TopicStore: Store<TopicSpec, C>,
+    SpgStore: Store<SpuGroupSpec, C>,
+    SmartModuleStore: Store<SmartModuleSpec, C>,
+    TableFormatStore: Store<TableFormatSpec, C>,
+>(
     request: RequestMessage<ObjectApiDeleteRequest>,
-    auth_ctx: &AuthServiceContext<AC, C>,
+    auth_ctx: &AuthServiceContext<
+        AC,
+        C,
+        SpuStore,
+        PartitionStore,
+        TopicStore,
+        SpgStore,
+        SmartModuleStore,
+        TableFormatStore,
+    >,
 ) -> Result<ResponseMessage<Status>> {
     let (header, del_req) = request.get_header_request();
 
@@ -63,22 +83,46 @@ mod delete_handler {
     };
 
     use fluvio_protocol::link::ErrorCode;
-    use fluvio_stream_dispatcher::store::StoreContext;
     use fluvio_stream_model::core::MetadataItem;
     use tracing::{info, trace, instrument};
 
     use fluvio_sc_schema::{AdminSpec, Status};
     use fluvio_auth::{AuthContext, InstanceAction};
-    use fluvio_controlplane_metadata::{core::Spec, extended::SpecExt};
+    use fluvio_controlplane_metadata::{
+        core::Spec, extended::SpecExt, spu::SpuSpec, partition::PartitionSpec, topic::TopicSpec,
+        spg::SpuGroupSpec, smartmodule::SmartModuleSpec, tableformat::TableFormatSpec,
+    };
 
-    use crate::services::auth::AuthServiceContext;
+    use crate::{services::auth::AuthServiceContext, stores::Store};
 
     /// Handler for object delete
     #[instrument(skip(auth_ctx, object_ctx, error_code, not_found_code))]
-    pub async fn process<AC: AuthContext, S, F, G, C: MetadataItem>(
+    pub async fn process<
+        AC: AuthContext,
+        S,
+        F,
+        G,
+        C: MetadataItem,
+        SpuStore: Store<SpuSpec, C>,
+        PartitionStore: Store<PartitionSpec, C>,
+        TopicStore: Store<TopicSpec, C>,
+        SpgStore: Store<SpuGroupSpec, C>,
+        SmartModuleStore: Store<SmartModuleSpec, C>,
+        TableFormatStore: Store<TableFormatSpec, C>,
+        SS: Store<S, C>,
+    >(
         name: String,
-        auth_ctx: &AuthServiceContext<AC, C>,
-        object_ctx: &StoreContext<S, C>,
+        auth_ctx: &AuthServiceContext<
+            AC,
+            C,
+            SpuStore,
+            PartitionStore,
+            TopicStore,
+            SpgStore,
+            SmartModuleStore,
+            TableFormatStore,
+        >,
+        object_ctx: &SS,
         error_code: F,
         not_found_code: G,
     ) -> Result<Status, Error>

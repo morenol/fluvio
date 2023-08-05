@@ -1,6 +1,6 @@
-use std::{time::Duration};
+use std::time::Duration;
 
-use fluvio_stream_dispatcher::{store::K8ChangeListener};
+use fluvio_stream_dispatcher::store::K8ChangeListener;
 use tracing::debug;
 use tracing::error;
 use tracing::trace;
@@ -11,12 +11,12 @@ use fluvio_future::task::spawn;
 use fluvio_future::timer::sleep;
 use k8_client::ClientError;
 
-use crate::stores::{StoreContext};
+use crate::stores::StoreContext;
 use crate::stores::spg::{SpuGroupSpec, SpuGroupStatus};
-use crate::stores::spu::{SpuSpec};
+use crate::stores::spu::SpuSpec;
 use crate::cli::TlsConfig;
 
-use crate::k8::objects::spg_group::{SpuGroupObj};
+use crate::k8::objects::spg_group::SpuGroupObj;
 use crate::k8::objects::spu_k8_config::ScK8Config;
 use crate::k8::objects::statefulset::StatefulsetSpec;
 use crate::k8::objects::spg_service::SpgServiceSpec;
@@ -224,6 +224,7 @@ mod test {
     use fluvio_stream_dispatcher::actions::WSAction;
     use fluvio_stream_dispatcher::dispatcher::K8ClusterStateDispatcher;
 
+    use crate::core::K8SharedContext;
     use crate::k8::fixture::TestEnv;
     use super::*;
 
@@ -240,7 +241,7 @@ mod test {
     #[fluvio_future::test(ignore)]
     async fn test_statefulset() {
         let test_env = TestEnv::create().await;
-        let (global_ctx, config_ctx) = test_env.create_global_ctx().await;
+        let (global_ctx, config_ctx): (K8SharedContext, _) = test_env.create_global_ctx().await;
 
         let statefulset_ctx: StoreContext<StatefulsetSpec> = StoreContext::new();
         let spg_service_ctx: StoreContext<SpgServiceSpec> = StoreContext::new();

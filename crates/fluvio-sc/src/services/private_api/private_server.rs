@@ -4,6 +4,22 @@ use std::io::Error as IoError;
 use std::io::ErrorKind;
 use std::time::Duration;
 
+use fluvio_stream_model::store::ChangeListener;
+use tracing::{debug, info, trace, instrument, error};
+use async_trait::async_trait;
+use futures_util::stream::Stream;
+use anyhow::Result;
+
+use fluvio_future::timer::sleep;
+use fluvio_service::ConnectInfo;
+use fluvio_controlplane_metadata::smartmodule::SmartModuleSpec;
+use fluvio_controlplane_metadata::tableformat::TableFormatSpec;
+use fluvio_controlplane_metadata::spg::SpuGroupSpec;
+use fluvio_controlplane_metadata::topic::TopicSpec;
+use fluvio_types::SpuId;
+use fluvio_protocol::api::RequestMessage;
+use fluvio_service::{FluvioService, wait_for_request};
+use fluvio_socket::{FluvioSocket, SocketError, FluvioSink};
 use fluvio_controlplane::message::ReplicaMsg;
 use fluvio_controlplane::message::SmartModuleMsg;
 use fluvio_controlplane::message::SpuMsg;
@@ -18,22 +34,10 @@ use fluvio_controlplane::spu_api::update_smartmodule::UpdateSmartModuleRequest;
 use fluvio_controlplane::spu_api::update_spu::UpdateSpuRequest;
 use fluvio_controlplane_metadata::message::Message;
 use fluvio_stream_model::core::MetadataItem;
-use fluvio_stream_model::store::ChangeListener;
-use tracing::{debug, info, trace, instrument, error};
-use async_trait::async_trait;
-use futures_util::stream::Stream;
-use anyhow::Result;
-
-use fluvio_future::timer::sleep;
-use fluvio_service::ConnectInfo;
-use fluvio_controlplane_metadata::smartmodule::SmartModuleSpec;
-use fluvio_types::SpuId;
-use fluvio_protocol::api::RequestMessage;
-use fluvio_service::{FluvioService, wait_for_request};
-use fluvio_socket::{FluvioSocket, SocketError, FluvioSink};
 
 use crate::core::SharedContext;
 use crate::stores::partition::PartitonStatusExtension;
+use crate::stores::Store;
 use crate::stores::partition::{PartitionSpec, PartitionStatus, PartitionResolution};
 use crate::stores::spu::SpuLocalStorePolicy;
 use crate::stores::spu::SpuSpec;
@@ -42,28 +46,86 @@ use crate::stores::actions::WSAction;
 const HEALTH_DURATION: u64 = 90;
 
 #[derive(Debug)]
-pub struct ScInternalService<C> {
-    data: PhantomData<C>,
+pub struct ScInternalService<
+    C,
+    SpuStore,
+    TopicStore,
+    PartitionStore,
+    SmartModuleStore,
+    SpgStore,
+    TableFormatStore,
+> {
+    data: PhantomData<(
+        C,
+        SpuStore,
+        TopicStore,
+        PartitionStore,
+        SmartModuleStore,
+        SpgStore,
+        TableFormatStore,
+    )>,
 }
 
-impl<C> ScInternalService<C> {
+impl<C, SpuStore, TopicStore, PartitionStore, SmartModuleStore, SpgStore, TableFormatStore>
+    ScInternalService<
+        C,
+        SpuStore,
+        TopicStore,
+        PartitionStore,
+        SmartModuleStore,
+        SpgStore,
+        TableFormatStore,
+    >
+{
     pub fn new() -> Self {
         Self { data: PhantomData }
     }
 }
 
 #[async_trait]
-impl<C> FluvioService for ScInternalService<C>
+impl<C, SpuStore, TopicStore, PartitionStore, SmartModuleStore, SpgStore, TableFormatStore>
+    FluvioService
+    for ScInternalService<
+        C,
+        SpuStore,
+        PartitionStore,
+        TopicStore,
+        SpgStore,
+        SmartModuleStore,
+        TableFormatStore,
+    >
 where
     C: MetadataItem,
+    SpuStore: Store<SpuSpec, C> + Send + Sync,
+    PartitionStore: Store<PartitionSpec, C> + Send + Sync,
+    TopicStore: Store<TopicSpec, C> + Send + Sync,
+    SpgStore: Store<SpuGroupSpec, C> + Send + Sync,
+    SmartModuleStore: Store<SmartModuleSpec, C> + Send + Sync,
+    TableFormatStore: Store<TableFormatSpec, C> + Send + Sync,
 {
-    type Context = SharedContext<C>;
+    type Context = SharedContext<
+        C,
+        SpuStore,
+        PartitionStore,
+        TopicStore,
+        SpgStore,
+        SmartModuleStore,
+        TableFormatStore,
+    >;
     type Request = InternalScRequest;
 
     #[instrument(skip(self, context))]
     async fn respond(
         self: Arc<Self>,
-        context: Self::Context,
+        context: SharedContext<
+            C,
+            SpuStore,
+            PartitionStore,
+            TopicStore,
+            SpgStore,
+            SmartModuleStore,
+            TableFormatStore,
+        >,
         socket: FluvioSocket,
         _connection: ConnectInfo,
     ) -> Result<()> {
@@ -116,8 +178,24 @@ where
 
 // perform internal dispatch
 #[instrument(name = "ScInternalService", skip(context, api_stream))]
-async fn dispatch_loop<C>(
-    context: SharedContext<C>,
+async fn dispatch_loop<
+    C: MetadataItem,
+    SpuStore: Store<SpuSpec, C>,
+    PartitionStore: Store<PartitionSpec, C>,
+    TopicStore: Store<TopicSpec, C>,
+    SpgStore: Store<SpuGroupSpec, C>,
+    SmartModuleStore: Store<SmartModuleSpec, C>,
+    TableFormatStore: Store<TableFormatSpec, C>,
+>(
+    context: SharedContext<
+        C,
+        SpuStore,
+        PartitionStore,
+        TopicStore,
+        SpgStore,
+        SmartModuleStore,
+        TableFormatStore,
+    >,
     spu_id: SpuId,
     mut api_stream: impl Stream<Item = Result<InternalScRequest, SocketError>> + Unpin,
     mut sink: FluvioSink,
@@ -201,10 +279,26 @@ where
 
 /// send lrs update to metadata stores
 #[instrument(skip(ctx, requests))]
-async fn receive_lrs_update<C>(ctx: &SharedContext<C>, requests: UpdateLrsRequest)
-where
+async fn receive_lrs_update<
     C: MetadataItem,
-{
+    SpuStore: Store<SpuSpec, C>,
+    PartitionStore: Store<PartitionSpec, C>,
+    TopicStore: Store<TopicSpec, C>,
+    SpgStore: Store<SpuGroupSpec, C>,
+    SmartModuleStore: Store<SmartModuleSpec, C>,
+    TableFormatStore: Store<TableFormatSpec, C>,
+>(
+    ctx: &SharedContext<
+        C,
+        SpuStore,
+        PartitionStore,
+        TopicStore,
+        SpgStore,
+        SmartModuleStore,
+        TableFormatStore,
+    >,
+    requests: UpdateLrsRequest,
+) {
     let requests = requests.into_requests();
     if requests.is_empty() {
         trace!("no requests, just health check");
@@ -213,7 +307,8 @@ where
         debug!(?requests, "received lr requests");
     }
     let mut actions = vec![];
-    let read_guard = ctx.partitions().store().read().await;
+    let store = ctx.partitions().store();
+    let read_guard = store.read().await;
     for lrs_req in requests.into_iter() {
         if let Some(partition) = read_guard.get(&lrs_req.id) {
             let mut current_status = partition.inner().status().clone();
@@ -250,13 +345,30 @@ where
     skip(ctx,request),
     fields(replica=%request.id)
 )]
-async fn receive_replica_remove<C>(ctx: &SharedContext<C>, request: ReplicaRemovedRequest)
-where
+async fn receive_replica_remove<
     C: MetadataItem,
-{
+    SpuStore: Store<SpuSpec, C>,
+    PartitionStore: Store<PartitionSpec, C>,
+    TopicStore: Store<TopicSpec, C>,
+    SpgStore: Store<SpuGroupSpec, C>,
+    SmartModuleStore: Store<SmartModuleSpec, C>,
+    TableFormatStore: Store<TableFormatSpec, C>,
+>(
+    ctx: &SharedContext<
+        C,
+        SpuStore,
+        PartitionStore,
+        TopicStore,
+        SpgStore,
+        SmartModuleStore,
+        TableFormatStore,
+    >,
+    request: ReplicaRemovedRequest,
+) {
     debug!(request=?request);
     // create action inside to optimize read locking
-    let read_guard = ctx.partitions().store().read().await;
+    let store = ctx.partitions().store();
+    let read_guard = store.read().await;
     let delete_action = if read_guard.contains_key(&request.id) {
         // force to delete partition regardless if confirm
         if request.confirm {

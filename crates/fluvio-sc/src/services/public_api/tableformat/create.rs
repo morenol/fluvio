@@ -4,6 +4,7 @@
 //! Converts TableFormat API request into KV request and sends to KV store for processing.
 //!
 
+use fluvio_controlplane_metadata::spu::SpuSpec;
 use fluvio_stream_model::core::MetadataItem;
 use tracing::{debug, info, trace, instrument};
 use anyhow::{anyhow, Result};
@@ -14,15 +15,39 @@ use fluvio_sc_schema::objects::CreateRequest;
 use fluvio_sc_schema::tableformat::TableFormatSpec;
 use fluvio_controlplane_metadata::extended::SpecExt;
 use fluvio_auth::{AuthContext, TypeAction};
+use fluvio_controlplane_metadata::partition::PartitionSpec;
+use fluvio_controlplane_metadata::smartmodule::SmartModuleSpec;
+use fluvio_controlplane_metadata::spg::SpuGroupSpec;
+use fluvio_controlplane_metadata::topic::TopicSpec;
 
 use crate::core::Context;
 use crate::services::auth::AuthServiceContext;
 
+use crate::stores::Store;
+
 /// Handler for tableformat request
 #[instrument(skip(req, auth_ctx))]
-pub async fn handle_create_tableformat_request<AC: AuthContext, C: MetadataItem>(
+pub async fn handle_create_tableformat_request<
+    AC: AuthContext,
+    C: MetadataItem,
+    SpuStore: Store<SpuSpec, C>,
+    PartitionStore: Store<PartitionSpec, C>,
+    TopicStore: Store<TopicSpec, C>,
+    SpgStore: Store<SpuGroupSpec, C>,
+    SmartModuleStore: Store<SmartModuleSpec, C>,
+    TableFormatStore: Store<TableFormatSpec, C>,
+>(
     req: CreateRequest<TableFormatSpec>,
-    auth_ctx: &AuthServiceContext<AC, C>,
+    auth_ctx: &AuthServiceContext<
+        AC,
+        C,
+        SpuStore,
+        PartitionStore,
+        TopicStore,
+        SpgStore,
+        SmartModuleStore,
+        TableFormatStore,
+    >,
 ) -> Result<Status> {
     let (create, spec) = req.parts();
     let name = create.name;
@@ -69,8 +94,24 @@ pub async fn handle_create_tableformat_request<AC: AuthContext, C: MetadataItem>
 
 /// Process custom tableformat, converts tableformat spec to K8 and sends to KV store
 #[instrument(skip(ctx, name, tableformat_spec))]
-async fn process_tableformat_request<C: MetadataItem>(
-    ctx: &Context<C>,
+async fn process_tableformat_request<
+    C: MetadataItem,
+    SpuStore: Store<SpuSpec, C>,
+    PartitionStore: Store<PartitionSpec, C>,
+    TopicStore: Store<TopicSpec, C>,
+    SpgStore: Store<SpuGroupSpec, C>,
+    SmartModuleStore: Store<SmartModuleSpec, C>,
+    TableFormatStore: Store<TableFormatSpec, C>,
+>(
+    ctx: &Context<
+        C,
+        SpuStore,
+        PartitionStore,
+        TopicStore,
+        SpgStore,
+        SmartModuleStore,
+        TableFormatStore,
+    >,
     name: String,
     tableformat_spec: TableFormatSpec,
 ) -> Status {

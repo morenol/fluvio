@@ -1,3 +1,4 @@
+use fluvio_controlplane_metadata::partition::PartitionSpec;
 use fluvio_protocol::link::ErrorCode;
 use fluvio_stream_model::core::MetadataItem;
 use tracing::{instrument, debug, error};
@@ -5,7 +6,7 @@ use anyhow::Result;
 
 use fluvio_controlplane_metadata::smartmodule::SmartModuleSpec;
 use fluvio_controlplane_metadata::spg::SpuGroupSpec;
-use fluvio_controlplane_metadata::spu::CustomSpuSpec;
+use fluvio_controlplane_metadata::spu::{CustomSpuSpec, SpuSpec};
 use fluvio_controlplane_metadata::tableformat::TableFormatSpec;
 use fluvio_controlplane_metadata::topic::TopicSpec;
 use fluvio_protocol::api::{RequestMessage, ResponseMessage};
@@ -14,12 +15,31 @@ use fluvio_sc_schema::objects::{ObjectApiCreateRequest, CreateRequest};
 use fluvio_auth::AuthContext;
 
 use crate::services::auth::AuthServiceContext;
+use crate::stores::Store;
 
 /// Handler for create topic request
 #[instrument(skip(request, auth_context))]
-pub async fn handle_create_request<AC: AuthContext, C: MetadataItem>(
+pub async fn handle_create_request<
+    AC: AuthContext,
+    C: MetadataItem,
+    SpuStore: Store<SpuSpec, C>,
+    PartitionStore: Store<PartitionSpec, C>,
+    TopicStore: Store<TopicSpec, C>,
+    SpgStore: Store<SpuGroupSpec, C>,
+    SmartModuleStore: Store<SmartModuleSpec, C>,
+    TableFormatStore: Store<TableFormatSpec, C>,
+>(
     request: Box<RequestMessage<ObjectApiCreateRequest>>,
-    auth_context: &AuthServiceContext<AC, C>,
+    auth_context: &AuthServiceContext<
+        AC,
+        C,
+        SpuStore,
+        PartitionStore,
+        TopicStore,
+        SpgStore,
+        SmartModuleStore,
+        TableFormatStore,
+    >,
 ) -> Result<ResponseMessage<Status>> {
     let (header, req) = request.get_header_request();
 
@@ -53,7 +73,12 @@ mod create_handler {
     use std::io::{Error, ErrorKind};
 
     use fluvio_controlplane_metadata::core::Spec;
-    use fluvio_stream_dispatcher::store::StoreContext;
+    use fluvio_controlplane_metadata::partition::PartitionSpec;
+    use fluvio_controlplane_metadata::smartmodule::SmartModuleSpec;
+    use fluvio_controlplane_metadata::spg::SpuGroupSpec;
+    use fluvio_controlplane_metadata::spu::SpuSpec;
+    use fluvio_controlplane_metadata::tableformat::TableFormatSpec;
+    use fluvio_controlplane_metadata::topic::TopicSpec;
     use fluvio_stream_model::core::MetadataItem;
     use tracing::{info, trace, instrument};
 
@@ -64,13 +89,35 @@ mod create_handler {
     use fluvio_auth::{AuthContext, TypeAction};
 
     use crate::services::auth::AuthServiceContext;
+    use crate::stores::Store;
 
     #[instrument(skip(create, spec, auth_ctx, object_ctx, error_code))]
-    pub async fn process<AC: AuthContext, S, F, C: MetadataItem>(
+    pub async fn process<
+        AC: AuthContext,
+        S,
+        F,
+        C: MetadataItem,
+        SpuStore: Store<SpuSpec, C>,
+        PartitionStore: Store<PartitionSpec, C>,
+        TopicStore: Store<TopicSpec, C>,
+        SpgStore: Store<SpuGroupSpec, C>,
+        SmartModuleStore: Store<SmartModuleSpec, C>,
+        TableFormatStore: Store<TableFormatSpec, C>,
+        SS: Store<S, C>,
+    >(
         create: CommonCreateRequest,
         spec: S,
-        auth_ctx: &AuthServiceContext<AC, C>,
-        object_ctx: &StoreContext<S, C>,
+        auth_ctx: &AuthServiceContext<
+            AC,
+            C,
+            SpuStore,
+            PartitionStore,
+            TopicStore,
+            SpgStore,
+            SmartModuleStore,
+            TableFormatStore,
+        >,
+        object_ctx: &SS,
         error_code: F,
     ) -> Result<Status, Error>
     where

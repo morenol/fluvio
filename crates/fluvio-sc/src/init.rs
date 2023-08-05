@@ -6,12 +6,19 @@
 //!
 use std::sync::Arc;
 
+use fluvio_controlplane_metadata::partition::PartitionSpec;
+use fluvio_controlplane_metadata::smartmodule::SmartModuleSpec;
+use fluvio_controlplane_metadata::spg::SpuGroupSpec;
+use fluvio_controlplane_metadata::spu::SpuSpec;
+use fluvio_controlplane_metadata::tableformat::TableFormatSpec;
+use fluvio_controlplane_metadata::topic::TopicSpec;
 use fluvio_stream_model::core::MetadataItem;
 #[cfg(feature = "k8")]
 use k8_metadata_client::{MetadataClient, SharedClient};
 
 use crate::core::Context;
 use crate::core::SharedContext;
+use crate::core::K8SharedContext;
 use crate::controllers::spus::SpuController;
 use crate::controllers::topics::TopicController;
 use crate::controllers::partitions::PartitionController;
@@ -21,26 +28,22 @@ use crate::services::start_internal_server;
 #[cfg(feature = "k8")]
 use crate::dispatcher::dispatcher::K8ClusterStateDispatcher;
 use crate::services::auth::basic::BasicRbacPolicy;
+use crate::stores::Store;
 
 #[cfg(feature = "k8")]
 pub async fn start_main_loop_with_k8<C>(
     sc_config_policy: (ScConfig, Option<BasicRbacPolicy>),
     metadata_client: SharedClient<C>,
-) -> crate::core::K8SharedContext
+) -> K8SharedContext
 where
     C: MetadataClient + 'static,
 {
-    use crate::stores::spu::SpuSpec;
-    use crate::stores::topic::TopicSpec;
-    use crate::stores::partition::PartitionSpec;
-    use crate::stores::spg::SpuGroupSpec;
-    use crate::stores::tableformat::TableFormatSpec;
-    use crate::stores::smartmodule::SmartModuleSpec;
+    use crate::core::K8Context;
 
     let (sc_config, auth_policy) = sc_config_policy;
 
     let namespace = sc_config.namespace.clone();
-    let ctx = Context::shared_metadata(sc_config);
+    let ctx = K8Context::shared_metadata(sc_config);
 
     K8ClusterStateDispatcher::<SpuSpec, C>::start(
         namespace.clone(),
@@ -82,13 +85,45 @@ where
 }
 
 /// start the main loop
-pub async fn start_main_loop<C>(
-    ctx: Arc<Context<C>>,
+pub async fn start_main_loop<
+    C,
+    SpuStore,
+    PartitionStore,
+    TopicStore,
+    SpgStore,
+    SmartModuleStore,
+    TableFormatStore,
+>(
+    ctx: Arc<
+        Context<
+            C,
+            SpuStore,
+            PartitionStore,
+            TopicStore,
+            SpgStore,
+            SmartModuleStore,
+            TableFormatStore,
+        >,
+    >,
     auth_policy: Option<BasicRbacPolicy>,
-) -> SharedContext<C>
+) -> SharedContext<
+    C,
+    SpuStore,
+    PartitionStore,
+    TopicStore,
+    SpgStore,
+    SmartModuleStore,
+    TableFormatStore,
+>
 where
     C: MetadataItem + 'static,
     C::UId: Send + Sync,
+    SpuStore: Store<SpuSpec, C> + Sync + Send + 'static,
+    PartitionStore: Store<PartitionSpec, C> + Sync + Send + 'static,
+    TopicStore: Store<TopicSpec, C> + Sync + Send + 'static,
+    SmartModuleStore: Store<SmartModuleSpec, C> + Sync + Send + 'static,
+    SpgStore: Store<SpuGroupSpec, C> + Sync + Send + 'static,
+    TableFormatStore: Store<TableFormatSpec, C> + Sync + Send + 'static,
 {
     let config = ctx.config();
     whitelist!(config, "spu", SpuController::start(ctx.clone()));
@@ -96,7 +131,10 @@ where
     whitelist!(
         config,
         "partition",
-        PartitionController::start(ctx.partitions().clone(), ctx.spus().clone())
+        PartitionController::<SpuStore, PartitionStore, C>::start(
+            ctx.partitions().clone(),
+            ctx.spus().clone()
+        )
     );
 
     whitelist!(config, "internal", start_internal_server(ctx.clone()));
@@ -107,6 +145,7 @@ where
     );
 
     mod pub_server {
+        use super::*;
 
         use std::sync::Arc;
         use tracing::info;
@@ -118,9 +157,26 @@ where
         use crate::services::auth::{AuthGlobalContext, RootAuthorization};
         use crate::services::auth::basic::{BasicAuthorization, BasicRbacPolicy};
 
-        pub fn start<C>(ctx: SharedContext<C>, auth_policy_option: Option<BasicRbacPolicy>)
-        where
+        pub fn start<
             C: MetadataItem + 'static,
+            SpuStore: Store<SpuSpec, C> + Sync + Send + 'static,
+            PartitionStore: Store<PartitionSpec, C> + Sync + Send + 'static,
+            TopicStore: Store<TopicSpec, C> + Sync + Send + 'static,
+            SmartModuleStore: Store<SmartModuleSpec, C> + Sync + Send + 'static,
+            SpgStore: Store<SpuGroupSpec, C> + Sync + Send + 'static,
+            TableFormatStore: Store<TableFormatSpec, C> + Sync + Send + 'static,
+        >(
+            ctx: SharedContext<
+                C,
+                SpuStore,
+                PartitionStore,
+                TopicStore,
+                SpgStore,
+                SmartModuleStore,
+                TableFormatStore,
+            >,
+            auth_policy_option: Option<BasicRbacPolicy>,
+        ) where
             C::UId: Send + Sync,
         {
             if let Some(policy) = auth_policy_option {

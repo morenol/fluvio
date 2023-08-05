@@ -1,6 +1,13 @@
 use std::iter;
 
+use fluvio_controlplane_metadata::partition::PartitionSpec;
+use fluvio_controlplane_metadata::smartmodule::SmartModuleSpec;
+use fluvio_controlplane_metadata::spg::SpuGroupSpec;
+use fluvio_controlplane_metadata::spu::SpuSpec;
+use fluvio_controlplane_metadata::tableformat::TableFormatSpec;
+use fluvio_controlplane_metadata::topic::TopicSpec;
 use fluvio_stream_dispatcher::store::StoreContext;
+use fluvio_stream_model::core::MetadataItem;
 use tracing::debug;
 use rand::{Rng, thread_rng};
 use rand::distributions::Alphanumeric;
@@ -14,7 +21,8 @@ use k8_client::{K8Client, SharedK8Client, load_and_share};
 
 use crate::k8::objects::spu_k8_config::ScK8Config;
 use crate::config::ScConfig;
-use crate::core::{Context, K8SharedContext};
+use crate::core::{Context, SharedContext};
+use crate::stores::Store;
 
 type ScConfigMetadata = MetadataStoreObject<ScK8Config, K8MetaItem>;
 
@@ -79,7 +87,28 @@ impl TestEnv {
         &self.client
     }
 
-    pub async fn create_global_ctx(&self) -> (K8SharedContext, StoreContext<ScK8Config>) {
+    pub async fn create_global_ctx<
+        C: MetadataItem,
+        SpuStore: Store<SpuSpec, C>,
+        PartitionStore: Store<PartitionSpec, C>,
+        TopicStore: Store<TopicSpec, C>,
+        SpgStore: Store<SpuGroupSpec, C>,
+        SmartModuleStore: Store<SmartModuleSpec, C>,
+        TableFormatStore: Store<TableFormatSpec, C>,
+    >(
+        &self,
+    ) -> (
+        SharedContext<
+            C,
+            SpuStore,
+            PartitionStore,
+            TopicStore,
+            SpgStore,
+            SmartModuleStore,
+            TableFormatStore,
+        >,
+        StoreContext<ScK8Config>,
+    ) {
         let config_map = ScConfigMetadata::with_spec("fluvio", ScK8Config::default());
         let config_store = LocalStore::new_shared();
         config_store.sync_all(vec![config_map]).await;

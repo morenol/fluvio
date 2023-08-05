@@ -17,6 +17,12 @@ use async_trait::async_trait;
 use anyhow::Result;
 
 use fluvio_service::ConnectInfo;
+use fluvio_controlplane_metadata::smartmodule::SmartModuleSpec;
+use fluvio_controlplane_metadata::partition::PartitionSpec;
+use fluvio_controlplane_metadata::spg::SpuGroupSpec;
+use fluvio_controlplane_metadata::spu::SpuSpec;
+use fluvio_controlplane_metadata::tableformat::TableFormatSpec;
+use fluvio_controlplane_metadata::topic::TopicSpec;
 use fluvio_types::event::StickyEvent;
 use fluvio_auth::Authorization;
 //use fluvio_service::aAuthorization;
@@ -29,27 +35,83 @@ use fluvio_sc_schema::AdminPublicApiKey;
 use fluvio_sc_schema::AdminPublicDecodedRequest;
 
 use crate::services::auth::{AuthGlobalContext, AuthServiceContext};
+use crate::stores::Store;
 
 #[derive(Debug)]
-pub struct PublicService<A, C> {
-    data: PhantomData<(A, C)>,
+pub struct PublicService<
+    A,
+    C,
+    SpuStore,
+    TopicStore,
+    PartitionStore,
+    SmartModuleStore,
+    SpgStore,
+    TableFormatStore,
+> {
+    data: PhantomData<(
+        A,
+        C,
+        SpuStore,
+        TopicStore,
+        PartitionStore,
+        SmartModuleStore,
+        SpgStore,
+        TableFormatStore,
+    )>,
 }
 
-impl<A, C> PublicService<A, C> {
+impl<A, C, SpuStore, TopicStore, PartitionStore, SmartModuleStore, SpgStore, TableFormatStore>
+    PublicService<
+        A,
+        C,
+        SpuStore,
+        TopicStore,
+        PartitionStore,
+        SmartModuleStore,
+        SpgStore,
+        TableFormatStore,
+    >
+{
     pub fn new() -> Self {
         PublicService { data: PhantomData }
     }
 }
 
 #[async_trait]
-impl<A, C> FluvioService for PublicService<A, C>
+impl<A, C, SpuStore, PartitionStore, TopicStore, SpgStore, SmartModuleStore, TableFormatStore>
+    FluvioService
+    for PublicService<
+        A,
+        C,
+        SpuStore,
+        PartitionStore,
+        TopicStore,
+        SpgStore,
+        SmartModuleStore,
+        TableFormatStore,
+    >
 where
     A: Authorization + Sync + Send,
-    C::UId: Send + Sync,
     C: MetadataItem + 'static,
+    C::UId: Send + Sync,
     <A as Authorization>::Context: Send + Sync,
+    SpuStore: Store<SpuSpec, C> + Sync + Send + 'static,
+    PartitionStore: Store<PartitionSpec, C> + Sync + Send + 'static,
+    TopicStore: Store<TopicSpec, C> + Sync + Send + 'static,
+    SpgStore: Store<SpuGroupSpec, C> + Sync + Send + 'static,
+    SmartModuleStore: Store<SmartModuleSpec, C> + Sync + Send + 'static,
+    TableFormatStore: Store<TableFormatSpec, C> + Sync + Send + 'static,
 {
-    type Context = AuthGlobalContext<A, C>;
+    type Context = AuthGlobalContext<
+        A,
+        C,
+        SpuStore,
+        PartitionStore,
+        TopicStore,
+        SpgStore,
+        SmartModuleStore,
+        TableFormatStore,
+    >;
     type Request = AdminPublicDecodedRequest;
 
     #[instrument(skip(self, ctx))]
