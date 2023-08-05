@@ -6,18 +6,14 @@ use rand::thread_rng;
 use rand::Rng;
 
 use fluvio_controlplane::PartitionMetadata;
+use fluvio_controlplane_metadata::topic::MirrorConfig;
+use fluvio_controlplane_metadata::topic::MirrorMap;
 use fluvio_controlplane_metadata::topic::ReplicaSpec;
 use fluvio_controlplane_metadata::topic::TopicReplicaParam;
 use fluvio_controlplane_metadata::topic::TopicResolution;
 use fluvio_types::PartitionId;
 use fluvio_types::ReplicaMap;
 use fluvio_types::ReplicationFactor;
-use fluvio_controlplane_metadata::topic::PartitionMaps;
-use fluvio_controlplane_metadata::topic::TopicStatus;
-use fluvio_stream_model::core::MetadataItem;
-
-use crate::stores::partition::PartitionLocalStore;
-use crate::stores::spu::SpuLocalStore;
 use fluvio_controlplane_metadata::topic::PartitionMaps;
 use fluvio_controlplane_metadata::topic::TopicStatus;
 use fluvio_stream_model::core::MetadataItem;
