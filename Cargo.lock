@@ -3983,9 +3983,9 @@ dependencies = [
 
 [[package]]
 name = "hostfile"
-version = "0.2.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c2733206bcc0550a15b450c64d8aa859f486d7281c4c0c36ef904b361960d658"
+checksum = "d72fd847c96f06bdb098b085660dca099381b7b14314f771deb3add755399e0c"
 
 [[package]]
 name = "http"
@@ -4396,9 +4396,9 @@ dependencies = [
 
 [[package]]
 name = "k8-config"
-version = "2.2.0"
+version = "2.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ec22051e1ca0ffea56a8d7dc5fdbf1b82107653a99b8200cfc554d59ae9a3e22"
+checksum = "f603b30cd4f0dfe206c2becc7f16bb14b382bfc5a48217be7c45722106de320a"
 dependencies = [
  "dirs 5.0.1",
  "hostfile",
