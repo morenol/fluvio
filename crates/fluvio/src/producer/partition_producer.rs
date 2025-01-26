@@ -7,6 +7,7 @@ use fluvio_protocol::record::ReplicaKey;
 use fluvio_protocol::record::{RawRecords, Batch};
 use fluvio_spu_schema::produce::{DefaultPartitionRequest, DefaultTopicRequest, DefaultProduceRequest};
 use fluvio_future::timer::sleep;
+use fluvio_socket::VersionedSerialSocket;
 use fluvio_types::SpuId;
 use fluvio_types::event::StickyEvent;
 
@@ -14,7 +15,6 @@ use crate::error::{Result, FluvioError};
 use crate::metrics::ClientMetrics;
 use crate::producer::accumulator::ProducePartitionResponseFuture;
 use crate::producer::config::DeliverySemantic;
-use fluvio_socket::VersionedSerialSocket;
 use crate::spu::SpuPool;
 use crate::TopicProducerConfig;
 
@@ -219,13 +219,17 @@ where
             topic_request.partitions.push(partition_request);
 
             if self.callback.is_some() {
+                #[cfg(not(all(target_arch = "wasm32", not(target_os = "wasi"))))]
                 let created_at = metadata.created_at;
+                #[cfg(not(all(target_arch = "wasm32", not(target_os = "wasi"))))]
                 let elapsed = created_at.elapsed();
                 let event = ProduceCompletionBatchEvent {
+                    #[cfg(not(target_arch = "wasm32"))]
                     created_at,
                     partition: self.replica.partition,
                     bytes_size,
                     records_len,
+                    #[cfg(not(all(target_arch = "wasm32", not(target_os = "wasi"))))]
                     elapsed,
                 };
 

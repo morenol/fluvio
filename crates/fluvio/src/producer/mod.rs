@@ -9,9 +9,9 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use tracing::instrument;
-use async_lock::RwLock;
 use anyhow::Result;
+use async_lock::RwLock;
+use tracing::instrument;
 
 use fluvio_protocol::record::ReplicaKey;
 use fluvio_protocol::record::Record;

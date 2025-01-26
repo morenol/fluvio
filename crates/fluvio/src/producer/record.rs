@@ -46,16 +46,21 @@ pub(crate) enum BatchMetadataState {
 
 pub(crate) struct BatchMetadata {
     state: RwLock<BatchMetadataState>,
+    // not used in wasm32-unknown-unknown
+    #[cfg(not(all(target_arch = "wasm32", not(target_os = "wasi"))))]
     pub(crate) created_at: Instant,
 }
 
 impl BatchMetadata {
     pub(crate) fn new(
         receiver: Receiver<ProducePartitionResponseFuture>,
-        created_at: Option<Instant>,
+        #[cfg(not(all(target_arch = "wasm32", not(target_os = "wasi"))))] created_at: Option<
+            Instant,
+        >,
     ) -> Self {
         Self {
             state: RwLock::new(BatchMetadataState::Buffered(receiver)),
+            #[cfg(not(all(target_arch = "wasm32", not(target_os = "wasi"))))]
             created_at: if let Some(created_at) = created_at {
                 created_at
             } else {
