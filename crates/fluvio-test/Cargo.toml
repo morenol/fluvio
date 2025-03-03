@@ -18,7 +18,7 @@ clap = { workspace = true, features = ["std", "derive"] }
 
 rand = { workspace = true }
 # Cryptographically secure rand is unnecessary and slow enough to affect for benchmark testing
-fastrand = "2.0.0"
+fastrand = "2.3.0"
 md-5 = "0.10"
 nix = { workspace = true, features = ["process"] }
 serde = { workspace = true, features = ["derive"] }
