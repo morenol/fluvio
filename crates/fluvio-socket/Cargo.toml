@@ -56,4 +56,4 @@ fluvio-types = { workspace = true, features = ["events"] }
 
 
 [build-dependencies]
-built = "0.7.0"
+built = "0.8.0"
