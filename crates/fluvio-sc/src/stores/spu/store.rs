@@ -252,9 +252,9 @@ where
             if let Some(rack) = &spu.spec.rack {
                 let mut ids: Vec<SpuId>;
                 let mut ids_in_map = rack_spus.remove(rack);
-                if ids_in_map.is_some() {
-                    ids = ids_in_map.as_mut().unwrap().to_vec();
-                    ids.push(spu.spec.id);
+                if let Some(ids_in) = &mut ids_in_map {
+                    ids_in.push(spu.spec.id);
+                    ids = ids_in.clone();
                 } else {
                     ids = vec![spu.spec.id];
                 }
