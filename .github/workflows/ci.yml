@@ -1384,7 +1384,7 @@ jobs:
       - build_image
       - local_cluster_test
       - k8_cluster_test
-    #  - k8_upgrade_test
+      - k8_upgrade_test
       - cli_smoke
       - partition_test
     runs-on: ubuntu-latest
