@@ -1,7 +1,7 @@
 version: "3"
 services:
   sc:
-    image: infinyon/fluvio:stable
+    image: fluvio-community/fluvio:stable
     container_name: sc
     hostname: sc
     ports:
@@ -19,15 +19,11 @@ services:
     environment:
       - RUST_LOG=info
     entrypoint: >
-      /bin/sh -c "
-      fluvio profile add docker sc:9003 docker;
-      fluvio cluster spu register --id 5001 -p 0.0.0.0:9110 -l spu:9010 --private-server spu:9011;
-      exit 0;
-      "
+      /bin/sh -c " fluvio profile add docker sc:9003 docker; fluvio cluster spu register --id 5001 -p 0.0.0.0:9110 -l spu:9010 --private-server spu:9011; exit 0; "
     depends_on:
       - sc
   spu:
-    image: infinyon/fluvio:stable
+    image: fluvio-community/fluvio:stable
     container_name: spu
     hostname: spu
     volumes:
