@@ -1,0 +1,38 @@
+[package]
+name = "fluvio-artifacts-util"
+description = "API for getting artifacts"
+version = "0.0.0"
+publish = false
+repository.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[features]
+
+[dependencies]
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+cargo_toml = { workspace = true }
+chrono = { workspace = true }
+hex = { workspace = true }
+http = { workspace = true }
+sha2 = { workspace = true }
+semver = { workspace = true, features = ["serde"] }
+serde = { workspace = true, features=["derive"] }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+tar = { workspace = true }
+pathdiff = { version = "0.2.1", default-features = false }
+tempfile = { workspace = true }
+tracing = { workspace = true }
+thiserror = { workspace = true }
+zip = { workspace = true }
+
+fluvio-hub-protocol = { workspace = true }
+fluvio-types = { workspace = true }
+fluvio-extension-common = { workspace = true,  optional = true }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+ureq = { workspace = true }
+octocrab = { version = "0.40", default-features = false, features = ["default-client", "rustls"]}

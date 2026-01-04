@@ -2,12 +2,11 @@ use std::fs::File;
 use std::io::copy;
 use std::path::PathBuf;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{bail, Result};
 use semver::Version;
 use tempfile::TempDir;
 
-use fluvio_hub_util::sha256_digest;
-use ureq::OrAnyStatus;
+use fluvio_artifacts_util::get_package_noauth;
 
 use crate::common::executable::{remove_fvm_binary_if_exists, set_executable_mode};
 
@@ -27,20 +26,6 @@ impl UpdateManager {
         }
     }
 
-    async fn fetch_checksum_for_version(&self, version: &Version) -> Result<String> {
-        let checksum_url = format!(
-            "https://packages.fluvio.io/v1/packages/fluvio/fvm/{version}/{TARGET}/fvm.sha256"
-        );
-        let request = ureq::get(&checksum_url);
-
-        let response = request.call().or_any_status().context(format!(
-            "Failed to fetch checksum for fvm@{version} from {checksum_url}"
-        ))?;
-
-        let checksum = response.into_string()?;
-        Ok(checksum)
-    }
-
     pub async fn update(&self, version: &Version) -> Result<()> {
         self.notify.info(format!("Downloading fvm@{version}"));
         let (_tmp_dir, new_fvm_bin) = self.download(version).await?;
@@ -56,41 +41,14 @@ impl UpdateManager {
     /// Downloads Fluvio Version Manager binary into a temporary directory
     async fn download(&self, version: &Version) -> Result<(TempDir, PathBuf)> {
         let tmp_dir = TempDir::new()?;
-        let download_url =
-            format!("https://packages.fluvio.io/v1/packages/fluvio/fvm/{version}/{TARGET}/fvm");
-        let request = ureq::get(&download_url);
-
-        tracing::info!(download_url, "Downloading FVM");
-
-        let response = request.call().or_any_status().context(format!(
-            "Failed to download fvm@{version} from {download_url}"
-        ))?;
-
+        let binary_data = get_package_noauth("fvm", &version.to_string(), TARGET).await?;
         let out_path = tmp_dir.path().join("fvm");
         let mut file = File::create(&out_path)?;
 
-        copy(&mut response.into_reader(), &mut file)?;
-        self.checksum(version, &out_path).await?;
+        copy(&mut binary_data.as_slice(), &mut file)?;
         set_executable_mode(&out_path)?;
 
         Ok((tmp_dir, out_path))
-    }
-
-    /// Verifies downloaded FVM binary checksums against the upstream checksums
-    async fn checksum(&self, version: &Version, path: &PathBuf) -> Result<()> {
-        let local_file_shasum = sha256_digest(path)?;
-        let upstream_shasum = self.fetch_checksum_for_version(version).await?;
-
-        if local_file_shasum != upstream_shasum {
-            bail!(
-                "Checksum mismatch for fvm@{}: local={}, upstream={}",
-                version,
-                local_file_shasum,
-                upstream_shasum
-            );
-        }
-
-        Ok(())
     }
 
     async fn install(&self, new_fvm_bin: &PathBuf) -> Result<()> {

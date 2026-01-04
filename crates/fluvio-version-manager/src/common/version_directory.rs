@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 use anyhow::{bail, Result};
 
-use fluvio_hub_util::fvm::{Artifact, Channel, PackageSet};
+use fluvio_artifacts_util::fvm::{Artifact, Channel, PackageSet};
 use semver::Version;
 
 use crate::common::manifest::{PACKAGE_SET_MANIFEST_FILENAME, VersionManifest};
@@ -198,7 +198,7 @@ mod tests {
     use fs_extra::dir::{copy as copy_dir, CopyOptions};
     use tempfile::TempDir;
 
-    use fluvio_hub_util::sha256_digest;
+    use fluvio_artifacts_util::sha256_digest;
 
     use crate::common::manifest::VersionedArtifact;
     use crate::common::settings::tests::{create_fvm_dir, delete_fvm_dir};

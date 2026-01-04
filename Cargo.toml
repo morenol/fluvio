@@ -19,7 +19,7 @@ members = [
     "crates/fluvio-compression",
     "crates/fluvio-controlplane",
     "crates/fluvio-controlplane-metadata",
-    "crates/fluvio-hub-util",
+    "crates/fluvio-artifacts-util",
     "crates/fluvio-hub-protocol",
     "crates/fluvio-extension-common",
     "crates/fluvio-kv-storage",
@@ -179,6 +179,7 @@ wasmparser = "0.235.0"
 web-time = "1.1.0"
 which = "8.0"
 x509-parser = "0.17.0"
+zip = "7"
 
 # External fluvio dependencies
 fluvio_ws_stream_wasm = "0.7.0"
@@ -202,7 +203,7 @@ fluvio-cli-common = { path = "crates/fluvio-cli-common" }
 fluvio-connector-package = { path = "crates/fluvio-connector-package/" }
 fluvio-controlplane = { path = "crates/fluvio-controlplane" }
 fluvio-extension-common = { path = "crates/fluvio-extension-common", default-features = false }
-fluvio-hub-util = { path = "crates/fluvio-hub-util" }
+fluvio-artifacts-util = { path = "crates/fluvio-artifacts-util" }
 fluvio-service = { path = "crates/fluvio-service" }
 fluvio-storage = { path = "crates/fluvio-storage" }
 fluvio-kv-storage = { path = "crates/fluvio-kv-storage", default-features = false }
