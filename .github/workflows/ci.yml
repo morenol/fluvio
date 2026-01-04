@@ -973,7 +973,6 @@ jobs:
           retention-days: 1
 
   fvm_cli_smoke:
-    if: ${{ false }} # disable until fvm is migrated to github based workflow
     name: CLI smoke test (fvm)
     needs: build_primary_binaries
     runs-on: ${{ matrix.os }}
@@ -1001,7 +1000,7 @@ jobs:
         timeout-minutes: 20
         run: |
           rm -rf ~/.fvm
-          make FVM_BIN=~/bin/fvm INFINYON_HUB_REMOTE="https://hub-dev.infinyon.cloud" cli-fvm-smoke
+          make FVM_BIN=~/bin/fvm cli-fvm-smoke
 
 
   read_only_test:
