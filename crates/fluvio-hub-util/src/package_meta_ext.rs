@@ -9,8 +9,6 @@ use fluvio_hub_protocol::{HubError, PackageMeta, PkgTag};
 use fluvio_hub_protocol::constants::{HUB_PACKAGE_META, PKG_TAG_META_PUBLISHED_AT};
 use fluvio_hub_protocol::validate_allowedchars;
 
-use crate::package_get_topfile;
-
 type Result<T> = std::result::Result<T, HubError>;
 
 pub trait PackageMetaExt {
@@ -114,16 +112,6 @@ pub fn packagename_transform(pkgname: &str) -> Result<String> {
     let tfm_pkgname = pkgname.replace('-', "_");
 
     Ok(tfm_pkgname)
-}
-
-/// given a package.tar file get the package-meta data
-pub fn package_get_meta<P: AsRef<Path>>(pkgfile: P) -> Result<PackageMeta> {
-    let buf = package_get_topfile(pkgfile.as_ref(), HUB_PACKAGE_META)?;
-    let strbuf = std::str::from_utf8(&buf).map_err(|_| {
-        HubError::UnableGetPackageMeta(pkgfile.as_ref().to_string_lossy().to_string())
-    })?;
-    let pm: PackageMeta = serde_yaml::from_str(strbuf)?;
-    Ok(pm)
 }
 
 /// Creates an instance of `PackageMeta` from bytes representing a TAR
