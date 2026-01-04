@@ -25,3 +25,5 @@ pub(super) fn home_dir() -> Result<PathBuf> {
         Err(Error::msg("Failed to resolve home directory"))
     }
 }
+
+pub const DEFAULT_ARTIFACTS: [&str; 4] = ["fluvio", "fluvio-run", "cdk", "smdk"];
