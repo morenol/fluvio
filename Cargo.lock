@@ -7062,7 +7062,6 @@ dependencies = [
  "fluvio-controlplane-metadata",
  "fluvio-extension-common",
  "fluvio-future",
- "fluvio-hub-util",
  "fluvio-smartengine",
  "include_dir",
  "lib-cargo-crate",
