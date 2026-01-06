@@ -13,26 +13,6 @@ use serde::de::DeserializeOwned;
 #[cfg(not(target_arch = "wasm32"))]
 use ureq::{Agent, AgentBuilder, Proxy, OrAnyStatus};
 
-pub async fn get_auth_json<J: serde::de::DeserializeOwned>(
-    url: &str,
-    auth_token: &str,
-) -> Result<J> {
-    let req = http::Request::get(url)
-        .header("Authorization", auth_token)
-        .body("")
-        .map_err(|e| anyhow!("request format error {e}"))?;
-
-    let resp = send(req)
-        .await
-        .map_err(|e| anyhow!("http access error {e}"))?;
-
-    let data = resp
-        .json::<J>()
-        .map_err(|e| anyhow!("json parse error {e}"))?;
-
-    Ok(data)
-}
-
 /// for simple get requests
 #[cfg(not(target_arch = "wasm32"))]
 pub async fn get(uri: impl AsRef<str>) -> Result<Response<Vec<u8>>> {

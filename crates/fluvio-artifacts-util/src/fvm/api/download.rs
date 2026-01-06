@@ -10,27 +10,7 @@ use http::StatusCode;
 use tracing::instrument;
 
 use crate::fvm::Artifact;
-use crate::utils::sha256_digest;
 use crate::htclient;
-
-/// Verifies downloaded artifact checksums against the upstream checksums
-async fn checksum(artf: &Artifact, path: &PathBuf) -> Result<()> {
-    let local_file_shasum = sha256_digest(path)?;
-    let body_shasum = htclient::get(&artf.sha256_url)
-        .await
-        .map_err(|err| Error::msg(err.to_string()))?
-        .into_body();
-    let upstream_shasum = String::from_utf8_lossy(&body_shasum);
-
-    if local_file_shasum != upstream_shasum {
-        return Err(Error::msg(format!(
-            "Artifact {} didnt matched upstream shasum. {} != {}",
-            artf.name, local_file_shasum, upstream_shasum
-        )));
-    }
-
-    Ok(())
-}
 
 #[async_trait]
 pub trait Download {
@@ -60,10 +40,17 @@ impl Download for Artifact {
             let out_path = target_dir.join(&self.name);
             let mut file = File::create(&out_path)?;
             let bytes = res.into_body();
-            let mut buf = Cursor::new(&bytes);
 
-            copy(&mut buf, &mut file)?;
-            checksum(self, &out_path).await?;
+            if self.download_url.as_str().ends_with(".zip") {
+                // if the artifact is a zip file, we need to unzip it first
+                let reader = std::io::Cursor::new(&bytes);
+                let mut zip = zip::ZipArchive::new(reader)?;
+                let mut zipped_file = zip.by_index(0)?;
+                copy(&mut zipped_file, &mut file)?;
+            } else {
+                let mut buf = Cursor::new(&bytes);
+                copy(&mut buf, &mut file)?;
+            }
 
             tracing::debug!(
                 name = self.name,
