@@ -232,7 +232,14 @@ where
 {
     /// check if batch is valid after decoded
     pub fn validate_decoding(&self) -> bool {
+        // `batch_len` has two different meanings depending on where the batch came from:
+        // - For decoded batches (from the wire/file), it includes header + records (+ schema id).
+        // - For in-memory `Batch<RawRecords>` created via `TryFrom<Batch>`, it historically stores
+        //   only the (compressed) records bytes length.
+        //
+        // We consider a batch "valid" if either interpretation matches.
         self.batch_len == self.calc_batch_len()
+            || self.batch_len == self.records.write_size(0) as i32
     }
 
     fn calc_batch_len(&self) -> i32 {
