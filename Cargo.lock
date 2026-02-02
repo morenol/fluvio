@@ -2298,7 +2298,7 @@ dependencies = [
  "async-trait",
  "fluvio-hub-protocol",
  "hex",
- "http 1.3.1",
+ "http 1.4.0",
  "octocrab",
  "semver 1.0.26",
  "serde",
@@ -2468,7 +2468,7 @@ dependencies = [
  "fluvio-types",
  "hex",
  "home",
- "http 1.3.1",
+ "http 1.4.0",
  "semver 1.0.26",
  "serde",
  "serde-tuple-vec-map",
@@ -2783,7 +2783,7 @@ dependencies = [
  "fluvio-types",
  "getrandom 0.2.16",
  "hex",
- "http 1.3.1",
+ "http 1.4.0",
  "mime",
  "pathdiff",
  "pem",
@@ -2819,7 +2819,7 @@ dependencies = [
 name = "fluvio-package-index"
 version = "0.50.2"
 dependencies = [
- "http 1.3.1",
+ "http 1.4.0",
  "once_cell",
  "semver 1.0.26",
  "serde",
@@ -4045,12 +4045,11 @@ dependencies = [
 
 [[package]]
 name = "http"
-version = "1.3.1"
+version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f4a85d31aea989eead29a3aaf9e1115a180df8282431156e533de47660892565"
+checksum = "e3ba2a386d7f85a81f119ad7498ebe444d2e22c2af0b86b069416ace48b3311a"
 dependencies = [
  "bytes",
- "fnv",
  "itoa",
 ]
 
@@ -4072,7 +4071,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1efedce1fb8e6913f23e0c92de8e62cd5b772a67e7b3946df930a62566c93184"
 dependencies = [
  "bytes",
- "http 1.3.1",
+ "http 1.4.0",
 ]
 
 [[package]]
@@ -4083,7 +4082,7 @@ checksum = "b021d93e26becf5dc7e1b75b1bed1fd93124b374ceb73f43d4d4eafec896a64a"
 dependencies = [
  "bytes",
  "futures-core",
- "http 1.3.1",
+ "http 1.4.0",
  "http-body 1.0.1",
  "pin-project-lite",
 ]
@@ -4148,7 +4147,7 @@ dependencies = [
  "bytes",
  "futures-channel",
  "futures-util",
- "http 1.3.1",
+ "http 1.4.0",
  "http-body 1.0.1",
  "httparse",
  "itoa",
@@ -4164,7 +4163,7 @@ version = "0.27.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "03a01595e11bdcec50946522c32dde3fc6914743000a68b93000965f2f02406d"
 dependencies = [
- "http 1.3.1",
+ "http 1.4.0",
  "hyper 1.6.0",
  "hyper-util",
  "log",
@@ -4188,7 +4187,7 @@ dependencies = [
  "futures-channel",
  "futures-core",
  "futures-util",
- "http 1.3.1",
+ "http 1.4.0",
  "http-body 1.0.1",
  "hyper 1.6.0",
  "ipnet",
@@ -5397,7 +5396,7 @@ dependencies = [
  "chrono",
  "either",
  "futures",
- "http 1.3.1",
+ "http 1.4.0",
  "http-body 1.0.1",
  "http-body-util",
  "hyper 1.6.0",
@@ -6428,7 +6427,7 @@ dependencies = [
  "futures-channel",
  "futures-core",
  "futures-util",
- "http 1.3.1",
+ "http 1.4.0",
  "http-body 1.0.1",
  "http-body-util",
  "hyper 1.6.0",
@@ -7809,7 +7808,7 @@ dependencies = [
  "bitflags 2.9.1",
  "bytes",
  "futures-util",
- "http 1.3.1",
+ "http 1.4.0",
  "http-body 1.0.1",
  "iri-string",
  "pin-project-lite",
@@ -8029,7 +8028,7 @@ checksum = "d11a831e3c0b56e438a28308e7c810799e3c118417f342d30ecec080105395cd"
 dependencies = [
  "base64 0.22.1",
  "brotli-decompressor",
- "http 1.3.1",
+ "http 1.4.0",
  "log",
  "once_cell",
  "rustls 0.22.4",
