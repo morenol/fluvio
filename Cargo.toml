@@ -113,7 +113,7 @@ handlebars = "6.3.0"
 hdrhistogram = "7.0"
 hex = "0.4"
 home = "0.5"
-http = { default-features = false, version = "1.2.0" }
+http = { default-features = false, version = "1.4.0" }
 humantime = "2.0"
 humantime-serde = { version = "1.1.1", default-features = false }
 include_dir = "0.7.2"
